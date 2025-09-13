@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Mis Proyectos | DocAI{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold text-primary">Mis Proyectos</h2>
+    <a href="{% url 'crear_proyecto' %}" class="btn btn-outline-success btn-sm">+ Nuevo Proyecto</a>
+</div>
+
+{% if proyectos %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for proyecto in proyectos %}
+            <div class="col">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ proyecto.nombre }}</h5>
+                        <p class="card-text text-muted small">
+                            {{ proyecto.descripcion|truncatechars:100 }}
+                        </p>
+                        <a href="{% url 'detalle_proyecto' proyecto.id %}" class="btn btn-outline-primary btn-sm">📄Ver Detalles</a>
+                        <a href="{% url 'editar_proyecto' proyecto.id %}" class="btn btn-outline-warning btn-sm">✏️Editar</a>
+                        <form action="{% url 'eliminar_proyecto' proyecto.id %}" method="POST" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('¿Estás seguro de que deseas eliminar este proyecto? Esta acción no se puede deshacer.')">
+                                🗑️ Eliminar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-info mt-4" role="alert">
+        Aún no tienes proyectos. ¡Crea uno para empezar a documentar con IA!
+    </div>
+{% endif %}
+{% endblock %}
+

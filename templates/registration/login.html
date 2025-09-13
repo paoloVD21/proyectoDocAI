@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% load static %}
+
+{% block title %}Iniciar sesión | DocAI{% endblock %}
+
+{% block content %}
+<section class="d-flex justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="card shadow-lg p-4 border-0 rounded-4" style="width: 100%; max-width: 420px;">
+        <div class="text-center mb-2">
+            <img src="{% static 'img/user-icon.png' %}" alt="Avatar de usuario" class="rounded-circle shadow-sm" width="70" height="70">
+            <h2 class="fw-bold text-primary mt-3">Iniciar sesión</h2>
+        </div>
+            <form method="post" action="{% url 'login' %}" id="loginForm" class="needs-validation" novalidate>
+                {% csrf_token %}
+                <div class="mb-3">
+                    {{ form.username.label_tag }}
+                    {{ form.username|add_class:"form-control py-1 px-3" }}
+                    <div class="invalid-feedback">
+                        Por favor, ingresa tu usuario.
+                    </div>
+                </div>
+                <div class="mb-3">
+                    {{ form.password.label_tag }}
+                    {{ form.password|add_class:"form-control py-1 px-3" }}
+                    <div class="invalid-feedback">
+                        Por favor, ingresa tu contraseña.
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-1">Entrar</button>
+                 {% if messages %}
+                    {% for message in messages %}
+                        {% if message.tags == "error" %}
+                            <div class="alert alert-danger mt-2" role="alert">
+                                {{ message }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            </form>
+
+        <p class="mt-3 text-center text-muted">¿No tienes cuenta? <a href="{% url 'signup' %}" class="text-decoration-none text-primary">Regístrate aquí</a></p>
+    </div>
+</section>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('loginForm');
+    const inputs = form.querySelectorAll('input');
+
+    // Función para validar un campo y mostrar comentario
+    function validateInput(input) {
+        if (input.checkValidity()) {
+            input.classList.remove('is-invalid');
+            input.classList.add('is-valid');
+        } else {
+            input.classList.remove('is-valid');
+            input.classList.add('is-invalid');
+        }
+    }
+
+    // Validar en tiempo real cada campo
+    inputs.forEach(input => {
+        input.addEventListener('input', () => validateInput(input));
+        input.addEventListener('blur', () => validateInput(input));
+    });
+
+    // Validar todo el formulario al enviar
+    form.addEventListener('submit', function(event) {
+        let valid = true;
+        inputs.forEach(input => {
+            validateInput(input);
+            if (!input.checkValidity()) valid = false;
+        });
+        if (!valid) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+    }, false);
+});
+</script>
+<style>
+
+.form-control {
+    padding-left: 0.75rem !important;
+}
+
+.form-control.is-valid,
+.form-control.is-invalid {
+    padding-right: 2.5rem !important;
+    background-position: right calc(0.375em + 0.1875rem) center !important;
+    background-repeat: no-repeat;
+    background-size: calc(1em + 0.375rem) calc(1em + 0.375rem);
+}
+</style>
+
+{% endblock %}

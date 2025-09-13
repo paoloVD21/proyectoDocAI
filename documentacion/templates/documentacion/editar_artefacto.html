@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}Editar artefacto | DocAI{% endblock %}
+{% block content %}
+<div class="container mt-4" style="max-width: 700px;">
+    <div class="card shadow-lg">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0 text-center">✏️ Editar artefacto</h4>
+            <small class="d-block text-center">Proyecto: <strong>{{ artefacto.proyecto.nombre }}</strong></small>
+        </div>
+        <div class="card-body">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+                <div class="mb-3">
+                    <label for="{{ form.titulo.id_for_label }}" class="form-label">Título</label>
+                    {{ form.titulo|add_class:"form-control" }}
+                    {% if form.titulo.errors %}
+                        <div class="text-danger small">{{ form.titulo.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="mb-3">
+                    <label for="{{ form.tipo.id_for_label }}" class="form-label">Tipo de artefacto</label>
+                    {{ form.tipo|add_class:"form-control" }}
+                    {% if form.tipo.errors %}
+                        <div class="text-danger small">{{ form.tipo.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="mb-3">
+                    <label for="{{ form.contenido.id_for_label }}" class="form-label">Contenido</label>
+                    {{ form.contenido|add_class:"form-control" }}
+                    {% if form.contenido.errors %}
+                        <div class="text-danger small">{{ form.contenido.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="d-flex justify-content-between">
+                    <button type="submit" class="btn btn-outline-success btn-sm">💾 Guardar Cambios</button>
+                    <button type="submit" name="regenerar" value="1" class="btn btn-outline-warning btn-sm">♻️ Regenerar con IA</button>
+                    <a href="{% url 'ver_artefacto' artefacto.id %}" class="btn btn-outline-danger btn-sm">❌ Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

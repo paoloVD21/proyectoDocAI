@@ -1,0 +1,8 @@
+{
+    "reportMissingImports": false,
+    "reportGeneralTypeIssues": false,
+    "pythonVersion": "3.8",
+    "extraPaths": [
+        "./docai_project"
+    ]
+}

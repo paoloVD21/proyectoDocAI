@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% load static %}
+
+{% block title %}Registro{% endblock %}
+
+{% block content %}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card p-4">
+                <div class="card-body">
+                    <div class="card-body text-center">
+                        <img src="{% static 'img/registro-icon.png' %}" alt="Avatar de usuario" class="rounded-circle shadow-sm" width="70" height="70">
+                    </div>
+                    <h2 class="fw-bold text-primary text-center mt-3">Crear cuenta</h2>
+
+                   <form method="post" novalidate>
+                        {% csrf_token %}
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            {{ form.username.label_tag }}
+                            {{ form.username|add_class:"form-control" }}
+                            <div class="invalid-feedback">Debe contener solo letras, números o guion bajo, entre 3 y 20 caracteres.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.email.label_tag }}
+                            {{ form.email|add_class:"form-control" }}
+                            <div class="invalid-feedback">Ingrese un correo electrónico válido.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.password1.label_tag }}
+                            {{ form.password1|add_class:"form-control" }}
+                            <div class="invalid-feedback">La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.password2.label_tag }}
+                            {{ form.password2|add_class:"form-control" }}
+                            <div class="invalid-feedback">Las contraseñas no coinciden.</div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">Registrarse</button>
+                    </form>
+
+                    <p class="text-center mt-3 form-subtext">
+                        ¿Ya tienes cuenta? <a href="{% url 'login' %}">Inicia sesión</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+function validarCampo(inputId, regex, mensaje, compararCon = null) {
+    const input = document.getElementById(inputId);
+    const feedback = input.nextElementSibling;
+
+    function validar() {
+        let valido = true;
+        if (regex) valido = regex.test(input.value);
+        if (compararCon) {
+            const comparador = document.getElementById(compararCon);
+            valido = valido && (input.value === comparador.value);
+        }
+        if (valido || input.value.length === 0) {
+            input.classList.remove("is-invalid");
+        } else {
+            input.classList.add("is-invalid");
+            feedback.textContent = mensaje;
+        }
+    }
+
+    input.addEventListener("input", validar);
+    if (compararCon) document.getElementById(compararCon).addEventListener("input", validar);
+}
+
+validarCampo("id_username", /^[a-zA-Z0-9_]{3,20}$/, "Debe contener solo letras, números o guion bajo, entre 3 y 20 caracteres.");
+validarCampo("id_email", /^[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}$/, "Ingrese un correo electrónico válido.");
+validarCampo("id_password1", /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/, "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.");
+validarCampo("id_password2", null, "Las contraseñas no coinciden.", "id_password1");
+</script>
+
+<style>
+
+.form-control {
+    padding-left: 0.75rem !important;
+}
+
+.form-control.is-valid,
+.form-control.is-invalid {
+    padding-right: 2.5rem !important;
+    background-position: right calc(0.375em + 0.1875rem) center !important;
+    background-repeat: no-repeat;
+    background-size: calc(1em + 0.375rem) calc(1em + 0.375rem);
+}
+</style>
+
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+{% block title %}Editar Proyecto | DocAI{% endblock %}
+{% block content %}
+<div class="container mt-1" style="max-width: 600px;">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white text-center">
+            <h4 class="mb-0">✏️Editar Proyecto</h4>
+        </div>
+        <div class="card-body">
+            <form method="post" novalidate>
+                {% csrf_token %}
+                <div class="mb-3">
+                    {{ form.nombre.label_tag }}
+                    {{ form.nombre|add_class:"form-control" }}
+                </div>
+                <div class="mb-3">
+                    {{ form.descripcion.label_tag }}
+                    {{ form.descripcion|add_class:"form-control" }}
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-outline-success btn-sm">✅Guardar Cambios</button>
+                    
+                    <a href="{% url 'dashboard' %}" class="btn btn-outline-danger btn-sm">❌cancelar</a>
+                </div>
+                
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

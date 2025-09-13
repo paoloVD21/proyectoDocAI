@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ artefacto.titulo }} | Artefacto{% endblock %}
+{% block content %}
+<div class="container mt-1">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="text-primary">{{ artefacto.titulo }}</h2>
+            <span class="badge bg-info text-dark">{{ artefacto.get_tipo_display }}</span>
+            <p class="text-muted mt-2">Proyecto: <strong>{{ artefacto.proyecto.nombre }}</strong></p>
+        </div>
+        <div class="d-flex">
+            <a href="{% url 'detalle_proyecto' artefacto.proyecto.id %}" class="btn btn-outline-success me-2">← Regresar</a>
+            <a href="{% url 'editar_artefacto' artefacto.id %}" class="btn btn-outline-warning me-2">✏️ Editar</a>
+            <form method="post" action="{% url 'eliminar_artefacto' artefacto.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger me-2">🗑️ Eliminar</button>
+            </form>
+        </div>
+    </div>
+    <div class="card mt-3 border-info">
+        <div class="card-body">
+            <h5 class="card-header bg-info text-white">Contenido del Artefacto</h5>
+            <div class="p-4 bg-light rounded shadow-sm">
+              <div class="card-body"><pre class="fs-6" style="white-space: pre-wrap; line-height: 1.8em; max-height: 300px; overflow-y: auto;">{{ artefacto.contenido }}</pre></div>
+            </div>
+              {# Esto es opcional y solo visible para ti como desarrollador #}
+              {% if artefacto.contexto %}
+                <div class="card mt-3 border-info">
+                    <h5 class="card-header bg-info text-white">Requisitos extraídos automáticamente</h5>
+                    <div class="card-body"><pre class="fs-6" style="white-space: pre-wrap; line-height: 1.8em; max-height: 300px; overflow-y: auto;">{{ artefacto.contexto }}</pre></div>
+                </div>
+              {% endif %}
+        </div>
+    </div>
+
+    {% if artefacto.titulo in "Diagrama de flujo Diagrama de clases Diagrama de Entidad-Relacion Diagrama de secuencia Diagrama de estado Diagrama de C4-contexto Diagrama de C4-contenedor Diagrama de C4-implementación" %}
+    <div class="card p-3 my-4 shadow border-info">
+        <h5 class="text-center text-white bg-info">🧩 Diagrama generado</h5>
+
+        <div class="text-end mb-3">
+            <button onclick="descargardiagrama('svg')" class="btn btn-outline-success btn-sm me-2">⬇️ SVG</button>
+            <button onclick="descargardiagrama('jpg')" class="btn btn-outline-success btn-sm me-2">⬇️ JPG</button>
+            <a href="{% url 'descargar_diagrama' artefacto.id %}" class="btn btn-outline-success btn-sm">⬇️ MMD</a>
+        </div>
+
+        <div class="mermaid" id="mermaid-container">
+          {{ artefacto.contenido|safe }}
+        </div>
+        <script id="mermaid-code" type="text/plain">
+          {{ artefacto.contenido|safe }}
+        </script>
+
+    </div>
+    {% endif %}
+</div>
+
+<script>
+  window.DIAGRAMA_INFO = {
+    proyecto: "{{ artefacto.proyecto.nombre|slugify }}",
+    titulo: "{{ artefacto.titulo|slugify }}",
+    fecha: "{{ artefacto.creado|date:'Y-m-d' }}"
+  };
+</script>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true });
+
+  function decodeHtmlEntities(str) {
+    const txt = document.createElement("textarea");
+    txt.innerHTML = str;
+    return txt.value;
+  }
+
+  window.descargardiagrama = async function(formato = "svg") {
+    const contenedor = document.getElementById("mermaid-code");
+    if (!contenedor) {
+      alert("No se encontró el código Mermaid.");
+      return;
+    }
+
+      const codigoMermaid = decodeHtmlEntities(contenedor.textContent.trim());
+      const { svg } = await mermaid.render("descarga-diagrama", codigoMermaid);
+    
+      const { proyecto, titulo, fecha } = window.DIAGRAMA_INFO;
+      const nombreArchivo = `${proyecto}_${titulo}_${fecha}.${formato}`;
+
+    if (formato === "svg") {
+      const blob = new Blob([svg], { type: "image/svg+xml" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = nombreArchivo;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    if (formato === "jpg") {
+      try {
+        
+        const svgElement = document.querySelector(".mermaid svg");
+        if (!svgElement) {
+          alert("❌ No se encontró el SVG renderizado.");
+          return;
+        }
+
+       
+        let svgString = new XMLSerializer().serializeToString(svgElement);
+
+       
+        if (!svgString.includes("xmlns=\"http://www.w3.org/2000/svg\"")) {
+          svgString = svgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+        }
+
+        
+        const svgBase64 = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgString)));
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = function () {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width * 9; 
+          canvas.height = img.height * 9;
+          const ctx = canvas.getContext("2d");
+
+          // Fondo blanco para JPG
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // Exportar como JPG
+          canvas.toBlob((blob) => {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = nombreArchivo;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+          }, "image/jpeg", 0.95);
+        };
+
+        img.onerror = function () {
+          alert("❌ Error al cargar el SVG como imagen.");
+        };
+
+        img.src = svgBase64;
+
+      } catch (error) {
+        alert("❌ Error inesperado al exportar a JPG.");
+        console.error(error);
+      }
+    }
+
+  };
+</script>
+{% endblock %}
