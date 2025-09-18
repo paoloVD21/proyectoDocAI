@@ -1,0 +1,23 @@
+.historia-item {
+    cursor: grab;
+    transition: all 0.3s ease;
+}
+
+.historia-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.historia-item.drag-over {
+    border: 2px dashed #007bff;
+    transform: scale(1.02);
+}
+
+.historia-item.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+#historias-lista {
+    min-height: 100px;
+}

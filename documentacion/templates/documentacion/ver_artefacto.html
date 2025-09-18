@@ -1,6 +1,13 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% load static %}
+{% load template_filters %}
+
 {% block title %}{{ artefacto.titulo }} | Artefacto{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/artefactos.css' %}">
+{% endblock %}
+
 {% block content %}
 <div class="container mt-1">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -19,22 +26,38 @@
         </div>
     </div>
 
+    {% if artefacto.titulo == "Historia de Usuario" %}
     <!-- Bloque de Historias de Usuario -->
     <div class="card mt-3 border-info">
         <div class="card-body">
-            <h5 class="card-header bg-info text-white">Historias de Usuario</h5>
-            <div class="p-4 bg-light rounded shadow-sm">
-              <div class="card-body"><pre class="fs-6" style="white-space: pre-wrap; line-height: 1.8em; max-height: 300px; overflow-y: auto;">{{ artefacto.contenido }}</pre></div>
-            </div>
-              {% if artefacto.contexto %}
-              <!-- Bloque de requisitos extraidos -->
-                <div class="card mt-3 border-info">
-                    <h5 class="card-header bg-info text-white">Requisitos extraídos automáticamente</h5>
-                    <div class="card-body"><pre class="fs-6" style="white-space: pre-wrap; line-height: 1.8em; max-height: 300px; overflow-y: auto;">{{ artefacto.contexto }}</pre></div>
+            <h5 class="card-header bg-info text-white mb-3">Historias de Usuario</h5>
+            <div id="historias-container" class="p-4 bg-light rounded shadow-sm">
+                <div class="historias-lista" id="historias-lista">
+                    {% for historia in artefacto.contenido|parse_historias %}
+                    <div class="historia-item card mb-3" draggable="true" data-historia-id="{{ forloop.counter }}">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary mb-2">Historia de Usuario #{{ forloop.counter }}</h6>
+                            <p class="card-text"><strong>Como:</strong> {{ historia.como }}</p>
+                            <p class="card-text"><strong>Quiero:</strong> {{ historia.quiero }}</p>
+                            <p class="card-text"><strong>Para:</strong> {{ historia.para }}</p>
+                            {% if historia.criterios %}
+                            <div class="mt-2">
+                                <strong>Criterios de Aceptación:</strong>
+                                <ul class="list-group list-group-flush mt-1">
+                                    {% for criterio in historia.criterios %}
+                                    <li class="list-group-item bg-light">{{ criterio }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
-              {% endif %}
+            </div>
         </div>
     </div>
+    {% endif %}
 
     {% if artefacto.titulo in "Diagrama de flujo Diagrama de clases Diagrama de Entidad-Relacion Diagrama de secuencia Diagrama de estado Diagrama de C4-contexto Diagrama de C4-contenedor Diagrama de C4-implementación" %}
     <div class="card p-3 my-4 shadow border-info">
@@ -55,8 +78,21 @@
 
     </div>
     {% endif %}
+
+    {% if artefacto.titulo not in "Historia de Usuario Diagrama de flujo Diagrama de clases Diagrama de Entidad-Relacion Diagrama de secuencia Diagrama de estado Diagrama de C4-contexto Diagrama de C4-contenedor Diagrama de C4-implementación" %}
+    <!-- Bloque para otros tipos de artefactos -->
+    <div class="card mt-3 border-info">
+        <div class="card-body">
+            <h5 class="card-header bg-info text-white">Contenido del Artefacto</h5>
+            <div class="p-4 bg-light rounded shadow-sm">
+                <pre class="fs-6" style="white-space: pre-wrap; line-height: 1.8em;">{{ artefacto.contenido }}</pre>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
+{% block extra_js %}
 <script>
   window.DIAGRAMA_INFO = {
     proyecto: "{{ artefacto.proyecto.nombre|slugify }}",
@@ -64,97 +100,7 @@
     fecha: "{{ artefacto.creado|date:'Y-m-d' }}"
   };
 </script>
-
-<script type="module">
-  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-  mermaid.initialize({ startOnLoad: true });
-
-  function decodeHtmlEntities(str) {
-    const txt = document.createElement("textarea");
-    txt.innerHTML = str;
-    return txt.value;
-  }
-
-  window.descargardiagrama = async function(formato = "svg") {
-    const contenedor = document.getElementById("mermaid-code");
-    if (!contenedor) {
-      alert("No se encontró el código Mermaid.");
-      return;
-    }
-
-      const codigoMermaid = decodeHtmlEntities(contenedor.textContent.trim());
-      const { svg } = await mermaid.render("descarga-diagrama", codigoMermaid);
-    
-      const { proyecto, titulo, fecha } = window.DIAGRAMA_INFO;
-      const nombreArchivo = `${proyecto}_${titulo}_${fecha}.${formato}`;
-
-    if (formato === "svg") {
-      const blob = new Blob([svg], { type: "image/svg+xml" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = nombreArchivo;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    if (formato === "jpg") {
-      try {
-        
-        const svgElement = document.querySelector(".mermaid svg");
-        if (!svgElement) {
-          alert("❌ No se encontró el SVG renderizado.");
-          return;
-        }
-
-       
-        let svgString = new XMLSerializer().serializeToString(svgElement);
-
-       
-        if (!svgString.includes("xmlns=\"http://www.w3.org/2000/svg\"")) {
-          svgString = svgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-        }
-
-        
-        const svgBase64 = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgString)));
-
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = function () {
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width * 9; 
-          canvas.height = img.height * 9;
-          const ctx = canvas.getContext("2d");
-
-          // Fondo blanco para JPG
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-          // Exportar como JPG
-          canvas.toBlob((blob) => {
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = nombreArchivo;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(a.href);
-          }, "image/jpeg", 0.95);
-        };
-
-        img.onerror = function () {
-          alert("❌ Error al cargar el SVG como imagen.");
-        };
-
-        img.src = svgBase64;
-
-      } catch (error) {
-        alert("❌ Error inesperado al exportar a JPG.");
-        console.error(error);
-      }
-    }
-
-  };
-</script>
+<script type="module" src="{% static 'js/diagramas.js' %}"></script>
+<script src="{% static 'js/artefactos.js' %}"></script>
+{% endblock %}
 {% endblock %}

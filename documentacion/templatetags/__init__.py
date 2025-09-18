@@ -1,0 +1,1 @@
+# Este archivo debe existir para que Django reconozca el directorio como un paquete

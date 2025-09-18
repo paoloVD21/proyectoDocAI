@@ -1,0 +1,95 @@
+/* src: static/css/styles.css*/ 
+body {
+  background: linear-gradient(135deg, #f8f9ff, #eaf0ff);
+  background-size: 400% 400%;
+  animation: fondoGradient 20s ease infinite;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  scroll-behavior: smooth;
+}
+
+/* Animación de fondo dinámico */
+@keyframes fondoGradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Animación flotar para tarjetas */
+.card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 1rem;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.75rem 1.5rem rgba(2, 83, 95, 0.427);
+}
+
+/* Navbar flotante con estilo */
+.navbar {
+  backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+/* Botones */
+.btn {
+    border-radius: 0.75rem;
+    transition: all 0.3s ease-in-out;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 123, 255, 0.2);
+}
+
+h1 span {
+    font-weight: 900;
+    background: linear-gradient(90deg, #0d6efd, #6610f2);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Footer personalizado */
+footer {
+  background: #f0f2f5;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Formularios */
+.form-control, .form-select {
+  border-radius: 0.5rem;
+  box-shadow: none;
+  border: 1px solid #ced4da;
+  transition: border 0.2s;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #80bdff;
+  outline: 0;
+  box-shadow: 0 0 0 0.1rem rgba(0, 123, 255, 0.25);
+}
+
+/* Efecto suave para alertas */
+.alert {
+  border-radius: 0.75rem;
+  opacity: 0.95;
+}
+
+/* Efectos para listas de tarjetas (HU, etc.) */
+.card-body h5 {
+  font-size: 1.05rem;
+  color: #333;
+}
+
+.card-body small {
+  font-style: italic;
+  color: #666;
+}
+
+/* Tabla */
+.table-hover tbody tr:hover {
+  background-color: #f1f9ff;
+}

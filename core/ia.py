@@ -9,7 +9,8 @@ api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     raise ValueError("La clave de API GEMINI_API_KEY no está configurada.")
 
-genai.configure(api_key=api_key)
+genai.configure(api_key=api_key) # pyright: ignore[reportPrivateImportUsage]
+# Modelo de IA a utilizar
 MODEL = "models/gemini-2.0-flash"
 
 # ===== PROMPTS PERSONALIZADOS =====
@@ -363,7 +364,7 @@ PROMPTS = {
 
 def _generar_contenido(prompt: str) -> str:
     try:
-        model = genai.GenerativeModel(MODEL)
+        model = genai.GenerativeModel(MODEL) # pyright: ignore[reportPrivateImportUsage]
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
@@ -376,6 +377,7 @@ def generar_subartefacto_con_prompt(tipo: str, **kwargs) -> str:
     prompt_func = PROMPTS[tipo]
     prompt = prompt_func(**kwargs)
     return _generar_contenido(prompt)
+
 #=====  codigo de extrae reqquisitos de la HU=======
 def extraer_requisitos(historia_texto: str) -> str:
     prompt = (

@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+
+# Libreria para tipado - Type Hints
 from typing import Any, List, Tuple
 
 class Project(models.Model):
@@ -18,7 +20,7 @@ class Project(models.Model):
         return self.nombre
 
     @property
-    def fases(self) -> models.QuerySet:
+    def fases(self) -> models.QuerySet: # Retorna un queryset 
         return self.fase_set.all()  # pyright: ignore[reportAttributeAccessIssue]
 
 
