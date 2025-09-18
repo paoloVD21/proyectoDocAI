@@ -19,7 +19,7 @@ class Project(models.Model):
 
     @property
     def fases(self) -> models.QuerySet:
-        return self.fase_set.all() # type: ignore
+        return self.fase_set.all()  # pyright: ignore[reportAttributeAccessIssue]
 
 
 class Fase(models.Model):

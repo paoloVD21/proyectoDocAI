@@ -18,14 +18,16 @@
             </form>
         </div>
     </div>
+
+    <!-- Bloque de Historias de Usuario -->
     <div class="card mt-3 border-info">
         <div class="card-body">
-            <h5 class="card-header bg-info text-white">Contenido del Artefacto</h5>
+            <h5 class="card-header bg-info text-white">Historias de Usuario</h5>
             <div class="p-4 bg-light rounded shadow-sm">
               <div class="card-body"><pre class="fs-6" style="white-space: pre-wrap; line-height: 1.8em; max-height: 300px; overflow-y: auto;">{{ artefacto.contenido }}</pre></div>
             </div>
-              {# Esto es opcional y solo visible para ti como desarrollador #}
               {% if artefacto.contexto %}
+              <!-- Bloque de requisitos extraidos -->
                 <div class="card mt-3 border-info">
                     <h5 class="card-header bg-info text-white">Requisitos extraídos automáticamente</h5>
                     <div class="card-body"><pre class="fs-6" style="white-space: pre-wrap; line-height: 1.8em; max-height: 300px; overflow-y: auto;">{{ artefacto.contexto }}</pre></div>

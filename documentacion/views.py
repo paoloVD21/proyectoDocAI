@@ -1,10 +1,10 @@
-from django.shortcuts import render, redirect, get_object_or_404 # pyright: ignore[reportMissingModuleSource]
-from django.contrib.auth.decorators import login_required # pyright: ignore[reportMissingModuleSource]
-from django.contrib.auth import authenticate,login, logout # pyright: ignore[reportMissingModuleSource]
-from django.views.decorators.http import require_POST # pyright: ignore[reportMissingModuleSource]
-from django.http import JsonResponse, HttpResponse # pyright: ignore[reportMissingModuleSource]
-from django.contrib.auth.forms import AuthenticationForm # pyright: ignore[reportMissingModuleSource]
-from django.contrib import messages # pyright: ignore[reportMissingModuleSource]
+from django.shortcuts import render, redirect, get_object_or_404 
+from django.contrib.auth.decorators import login_required 
+from django.contrib.auth import authenticate,login, logout 
+from django.views.decorators.http import require_POST 
+from django.http import JsonResponse, HttpResponse 
+from django.contrib.auth.forms import AuthenticationForm 
+from django.contrib import messages
 from .models import Project, Artefacto, Fase, SubArtefacto
 from .forms import ProjectForm, ArtefactoForm, CustomUserCreationForm
 from core.ia import generar_subartefacto_con_prompt, extraer_requisitos, _generar_contenido, PROMPTS
