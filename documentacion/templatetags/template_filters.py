@@ -47,6 +47,29 @@ def parse_historias(texto):
         print(f"Error al procesar historias de usuario: {str(e)}")
         return []
 
+@register.filter(name='filter_requisitos')
+def filter_requisitos(requisitos_texto, numero_historia):
+    """Filtra los requisitos asociados a una historia de usuario específica"""
+    try:
+        if not requisitos_texto:
+            return []
+        
+        requisitos = []
+        numero_hu = str(numero_historia)
+        patron = rf'\[HU{numero_hu}\]'
+        
+        # Dividir por líneas y buscar requisitos que mencionen [HU#]
+        for linea in requisitos_texto.split('\n'):
+            if re.search(patron, linea):
+                # Eliminar el identificador [HU#] para una mejor visualización
+                requisito_limpio = re.sub(r'\[HU\d+\]', '', linea).strip()
+                requisitos.append(requisito_limpio)
+        
+        return requisitos
+    except Exception as e:
+        print(f"Error al filtrar requisitos: {str(e)}")
+        return []
+
 @register.filter
 def split_requisitos(texto):
     """Divide el texto de requisitos en una lista"""

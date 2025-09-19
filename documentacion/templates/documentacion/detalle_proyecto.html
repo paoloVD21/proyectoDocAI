@@ -18,7 +18,11 @@
     {% if fases %}
     {% if not hu_con_requisitos %}
     <div class="alert alert-warning text-dark text-center shadow-sm mb-4 border border-warning">
-        ⚠️ Primero debes generar la <strong>Historia de Usuario</strong> para habilitar la creación de diagramas y pruebas.
+        ⚠️ Primero debes generar la <strong>Historia de Usuario</strong> para continuar con el flujo de trabajo.
+    </div>
+    {% elif not requisitos_generados %}
+    <div class="alert alert-info text-dark text-center shadow-sm mb-4 border border-info">
+        📝 Ahora puedes generar los <strong>Requisitos</strong> basados en las Historias de Usuario.
     </div>
     {% endif %}
 
@@ -38,12 +42,23 @@
                     {% if fase.subartefactos.all %}
                         {% for sub in fase.subartefactos_ordenados %}
                         <div class="d-grid gap-2 mb-2">
-                            {% if sub.nombre == "Historia de Usuario" or hu_con_requisitos %}
+                            {% if sub.nombre == "Historia de Usuario" %}
+                                <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" class="btn btn-outline-info btn-sm">
+                                    {{ sub.nombre }}
+                                </a>
+                            {% elif sub.nombre == "Requisitos" and hu_con_requisitos %}
+                                <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" class="btn btn-outline-info btn-sm">
+                                    {{ sub.nombre }}
+                                </a>
+                            {% elif sub.nombre != "Historia de Usuario" and sub.nombre != "Requisitos" and hu_con_requisitos and requisitos_generados %}
                                 <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" class="btn btn-outline-info btn-sm">
                                     {{ sub.nombre }}
                                 </a>
                             {% else %}
-                                <button class="btn btn-outline-secondary btn-sm" disabled title="Primero genera la Historia de Usuario">
+                                <button class="btn btn-outline-secondary btn-sm" disabled 
+                                    title="{% if not hu_con_requisitos %}Primero genera la Historia de Usuario
+                                    {% elif not requisitos_generados and sub.nombre != 'Requisitos' %}Primero genera los Requisitos
+                                    {% endif %}">
                                     🚫 {{ sub.nombre }}
                                 </button>
                             {% endif %}

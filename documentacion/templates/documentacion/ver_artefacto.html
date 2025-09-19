@@ -79,7 +79,51 @@
     </div>
     {% endif %}
 
-    {% if artefacto.titulo not in "Historia de Usuario Diagrama de flujo Diagrama de clases Diagrama de Entidad-Relacion Diagrama de secuencia Diagrama de estado Diagrama de C4-contexto Diagrama de C4-contenedor Diagrama de C4-implementación" %}
+    {% if artefacto.titulo == "Requisitos" %}
+    <!-- Bloque para Requisitos -->
+    <div class="card mt-3 border-info">
+        <div class="card-body">
+            <h5 class="card-header bg-info text-white mb-3">Historias de Usuario y sus Requisitos</h5>
+            <div class="p-4 bg-light rounded shadow-sm">
+                {% if historia_usuario %}
+                    {% for historia in historia_usuario.contenido|parse_historias %}
+                    <div class="card mb-4 border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0">Historia de Usuario #{{ forloop.counter }}</h6>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Como:</strong> {{ historia.como }}</p>
+                            <p><strong>Quiero:</strong> {{ historia.quiero }}</p>
+                            <p><strong>Para:</strong> {{ historia.para }}</p>
+                            
+                            <div class="mt-3 bg-light p-3 rounded">
+                                <h6 class="text-primary mb-2">Requisitos Funcionales Asociados:</h6>
+                                {% with requisitos_historia=artefacto.contenido|filter_requisitos:forloop.counter %}
+                                    {% if requisitos_historia %}
+                                        {% for requisito in requisitos_historia %}
+                                        <div class="alert alert-info mb-2">
+                                            {{ requisito }}
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <p class="text-muted">No se encontraron requisitos específicos para esta historia.</p>
+                                    {% endif %}
+                                {% endwith %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-warning">
+                        No se encontró la Historia de Usuario asociada.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if artefacto.titulo not in "Historia de Usuario Requisitos Diagrama de flujo Diagrama de clases Diagrama de Entidad-Relacion Diagrama de secuencia Diagrama de estado Diagrama de C4-contexto Diagrama de C4-contenedor Diagrama de C4-implementación" %}
     <!-- Bloque para otros tipos de artefactos -->
     <div class="card mt-3 border-info">
         <div class="card-body">

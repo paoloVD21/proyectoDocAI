@@ -10,15 +10,33 @@ if not api_key:
     raise ValueError("La clave de API GEMINI_API_KEY no está configurada.")
 
 genai.configure(api_key=api_key) # pyright: ignore[reportPrivateImportUsage]
+
 # Modelo de IA a utilizar
 MODEL = "models/gemini-2.0-flash"
 
 # ===== PROMPTS PERSONALIZADOS =====
 
 PROMPTS = {
+    "Requisitos": lambda texto: (
+        "A partir de las siguientes historias de usuario:\n\n"
+        f"{texto}\n\n"
+        "Genera una lista de requisitos funcionales. Para cada requisito:\n"
+        "1. Debe empezar con RF seguido de un número secuencial (RF1, RF2, etc.)\n"
+        "2. Debe indicar a qué historia de usuario corresponde usando [HU#]\n"
+        "3. Debe ser atómico (una sola funcionalidad)\n"
+        "4. Debe ser medible y verificable\n"
+        "5. Debe estar redactado en tercera persona del presente\n"
+        "5. Debe ser redacto asi: El sistema debe ....\n"
+        "Ejemplo del formato esperado:\n"
+        "RF1 [HU1] El sistema debe permitir el inicio de sesión mediante correo y contraseña\n"
+        "RF2 [HU1] El sistema debe validar las credenciales contra la base de datos\n"
+        "RF3 [HU2] El sistema debe mostrar el listado de productos disponibles\n"
+        "Devuelve solo la lista de requisitos siguiendo este formato, sin explicaciones ni títulos adicionales."
+    ),
+
     "Historia de Usuario": lambda nombre_proyecto, descripcion: (
         f"Dame historias de usuario enumeradas con HU y el número secuencial para un proyecto de software llamado '{nombre_proyecto}' y con la siguiente descripción '{descripcion}'. "
-        "Con la estructura: Como, Quiero, Para. No le des formato a la respuesta. Ni uses lenguaje técnico."
+        "Con la estructura: Como, Quiero, Para. No le des formato a la respuesta. Ni uses lenguaje técnico si no que sea como un usuario común."
     ),
 
     "Diagrama de flujo": lambda texto: (
@@ -44,15 +62,17 @@ PROMPTS = {
         "  E --> F"
     ),
 
-    "Diagrama de clases": lambda texto: (
-        "Genera un diagrama de clases en sintaxis Mermaid basado en el siguiente texto:\n\n"
-        f"{texto}\n\n"
+    "Diagrama de clases": lambda historias_usuario, requisitos: (
+        "Genera un diagrama de clases en sintaxis Mermaid basado en las siguientes historias de usuario y requisitos funcionales:\n\n"
+        f"Historias de Usuario:\n{historias_usuario}\n\n"
+        f"Requisitos Funcionales:\n{requisitos}\n\n"
         "Incluye las siguientes características:\n"
-        "- Clases con nombres claros.\n"
-        "- Atributos con tipo y visibilidad (+ público, - privado, # protegido).\n"
-        "- Métodos con parámetros y visibilidad.\n"
-        "- Relaciones entre clases: herencia (<|--), asociación (--), composición (*--), agregación (o--).\n"
-        "- Multiplicidades cuando correspondan.\n"
+        "- Extrae las clases principales identificadas en las historias de usuario y requisitos.\n"
+        "- Para cada requisito funcional, identifica los métodos necesarios en las clases correspondientes.\n"
+        "- Define atributos con tipo y visibilidad (+ público, - privado, # protegido) basados en la información de los requisitos.\n"
+        "- Establece las relaciones entre clases: herencia (<|--), asociación (--), composición (*--), agregación (o--).\n"
+        "- Incluye multiplicidades cuando correspondan.\n"
+        "- Asegura que cada clase tenga los métodos necesarios para cumplir con los requisitos funcionales.\n"
         "-no utilices explicaciones del diagrama.\n"
         "classDiagram\n"
         "    class Usuario {\n"
@@ -68,18 +88,21 @@ PROMPTS = {
         "    Pedido o-- Producto : contiene"
     ),
 
-    "Diagrama de Entidad-Relacion": lambda texto: (
-        "Genera un diagrama entidad-relación (ER) en sintaxis Mermaid basado en el siguiente texto:\n\n"
-        f"{texto}\n\n"
+    "Diagrama de Entidad-Relacion": lambda historias_usuario, requisitos: (
+        "Genera un diagrama entidad-relación (ER) en sintaxis Mermaid basado en las siguientes historias de usuario y requisitos funcionales:\n\n"
+        f"Historias de Usuario:\n{historias_usuario}\n\n"
+        f"Requisitos Funcionales:\n{requisitos}\n\n"
         "Indicaciones claras para la generación:\n"
+        "- Analiza las historias de usuario y requisitos para identificar las entidades principales y sus relaciones.\n"
+        "- Cada requisito funcional debe estar reflejado en las entidades y sus atributos.\n"
         "- Usa la palabra clave erDiagram para iniciar el diagrama.\n"
-        "- Define solo entidades relevantes con atributos dentro de llaves {}, indicando tipo y clave primaria (PK) si aplica.\n"
-        "- No generes entidades sin atributos o sin relaciones, para evitar cuadros vacíos.\n"
+        "- Define entidades con atributos dentro de llaves {}, indicando tipo y clave primaria (PK) si aplica.\n"
+        "- Identifica las relaciones necesarias para cumplir los requisitos funcionales.\n"
         "- Usa cardinalidades con los símbolos ||, |o, }o, }| según notación crow's foot.\n"
         "- Define relaciones con la sintaxis: ENTIDAD1 <cardinalidad>--<cardinalidad> ENTIDAD2 : descripción\n"
         "- Usa direccion TB o LR.\n"
         "- Usa nombres de entidades en mayúsculas y sin espacios ni caracteres especiales.\n"
-        "- Limita los nombres de atributos a un máximo de 3 palabras para mejor legibilidad.\n"
+        "- Asegura que cada entidad tenga los atributos necesarios para cumplir los requisitos.\n"
         "- Devuelve solo el bloque de código completo en Mermaid, sin explicaciones ni texto adicional.\n\n"
         "Ejemplo:\n"
         "erDiagram\n"

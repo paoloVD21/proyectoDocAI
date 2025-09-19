@@ -169,12 +169,12 @@ class ArtefactoForm(forms.ModelForm):
         """
         titulo = self.cleaned_data.get('titulo', '').lower()
 
-        if titulo == "historia de usuario":
+        if titulo in ("historia de usuario", "requisitos"):
             return 'AREQ'
+        elif titulo == "diagrama de flujo":
+            return 'DEVS'
         elif titulo in ("caja negra", "smoke"):
             return 'PRUE'
-        elif titulo == "diagrama de flujo":
-            return 'AREQ'
         elif titulo in ("diagrama de clases", "diagrama de entidad-relacion"):
             return 'DISE'
         elif titulo in ("diagrama de secuencia", "diagrama de estado"):
@@ -192,12 +192,12 @@ class ArtefactoForm(forms.ModelForm):
             self.fields['tipo'].disabled = True  
 
             titulo = self.instance.titulo.lower()
-            if titulo == "historia de usuario":
+            if titulo in ("historia de usuario", "requisitos"):
                 self.initial['tipo'] = 'AREQ'
+            elif titulo == "diagrama de flujo":
+                self.initial['tipo'] = 'DEVS'
             elif titulo in ("caja negra", "smoke"):
                 self.initial['tipo'] = 'PRUE'
-            elif titulo == "diagrama de flujo":
-                self.initial['tipo'] = 'AREQ'
             elif titulo in ("diagrama de clases", "diagrama de entidad-relacion"):
                 self.initial['tipo'] = 'DISE'
             elif titulo in ("diagrama de secuencia", "diagrama de estado"):
