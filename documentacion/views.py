@@ -35,11 +35,36 @@ ARTEFACTOS_VALIDOS = set(ARTEFACTOS_TEXTO + ARTEFACTOS_MERMAID)
 # ===== UTILIDAD PARA LIMPIAR BLOQUES MERMAID =====
 
 def limpiar_mermaid(texto):
+    if not texto or texto.isspace():
+        return "graph TD\nA[Error] --> B[Diagrama vacío]"
+    
     texto = texto.strip()
     if texto.startswith("```mermaid"):
         texto = texto.replace("```mermaid", "", 1).strip()
     if texto.endswith("```"):
         texto = texto[:texto.rfind("```")].strip()
+    
+    # Verificar si es un error de sintaxis
+    if "Syntax error" in texto:
+        return """graph TD
+    A[Error de Sintaxis] --> B[Causas posibles:]
+    B --> C[1. Formato del diagrama incorrecto]
+    B --> D[2. Elementos mal definidos]
+    B --> E[3. Relaciones incorrectas]
+    
+    style A fill:#ff6b6b,stroke:#333,stroke-width:4px
+    style B fill:#4ecdc4,stroke:#333,stroke-width:2px"""
+    
+    # Verificar si el texto tiene al menos una definición de diagrama válida
+    tipos_validos = ["graph", "sequenceDiagram", "classDiagram", "erDiagram", "stateDiagram", "C4Context", "C4Container", "C4Deployment"]
+    if not any(tipo in texto for tipo in tipos_validos):
+        return """graph TD
+    A[Error de Formato] --> B[El diagrama no contiene una definición válida]
+    B --> C[Tipos válidos:]
+    C --> D[graph, sequenceDiagram, classDiagram, etc.]
+    
+    style A fill:#ff6b6b,stroke:#333,stroke-width:4px"""
+    
     return texto
 
 # ========================= DASHBOARD =========================
@@ -307,9 +332,26 @@ def editar_artefacto(request, artefacto_id):
 
                 except Exception as e:
                     import traceback
-                    artefacto.contenido = f"[ERROR IA] {str(e)}\n{traceback.format_exc()}"
-                    messages.error(request, '❌ Error al regenerar el contenido con IA.')
-                
+                    error_msg = str(e)
+                    
+                    if "got an unexpected keyword argument 'texto'" in error_msg:
+                        messages.error(request, '❌ Error: Falta generar la Historia de Usuario y los Requisitos antes de regenerar este diagrama.')
+                        if artefacto.titulo in ARTEFACTOS_MERMAID:
+                            artefacto.contenido = "Error al generar el diagrama:\n\n1. Asegúrate de tener una Historia de Usuario generada\n2. Verifica que los Requisitos se hayan extraído correctamente\n3. Si el problema persiste, intenta regenerar la Historia de Usuario"
+                        else:
+                            artefacto.contenido = "Error: Primero debes generar la Historia de Usuario"
+                    elif "got an unexpected keyword argument 'historias_usuario'" in error_msg:
+                        messages.error(request, '❌ Error: El formato del diagrama no es compatible con la última versión.')
+                        artefacto.contenido = "Error: El diagrama requiere actualización. Por favor, contacta al administrador."
+                    elif "KeyError" in error_msg:
+                        messages.error(request, '❌ Error: Este tipo de artefacto no está configurado correctamente.')
+                        artefacto.contenido = "Error: Tipo de artefacto no configurado correctamente"
+                    else:
+                        messages.error(request, f'❌ Error al regenerar el contenido con IA: {error_msg}')
+                        if artefacto.titulo in ARTEFACTOS_MERMAID:
+                            artefacto.contenido = "Error al generar el diagrama:\n\n1. Asegúrate de tener una Historia de Usuario generada\n2. Verifica que los Requisitos se hayan extraído correctamente\n3. Si el problema persiste, intenta regenerar la Historia de Usuario"
+                        else:
+                            artefacto.contenido = f"[ERROR IA] {error_msg}\n{traceback.format_exc()}"
             else:
                 
                 artefacto = form.save(commit=False)
@@ -367,13 +409,43 @@ def ver_artefacto(request, artefacto_id):
             
             prompt = PROMPTS[artefacto.titulo](historias_usuario, requisitos)
             mermaid_code = _generar_contenido(prompt)
+            
+            # Validar que el código Mermaid no esté vacío y tenga la estructura correcta
+            if not mermaid_code or mermaid_code.isspace():
+                messages.error(request, '❌ Error: El diagrama generado está vacío.')
+                mermaid_code = "Error: No se pudo generar el diagrama. Por favor, verifica que las historias de usuario y requisitos contengan suficiente información."
+            elif "Syntax error" in mermaid_code:
+                messages.error(request, '❌ Error de sintaxis en el diagrama. El diagrama será regenerado automáticamente.')
+                mermaid_code = f"""graph TD
+    A[Error de Sintaxis] --> B[Por favor verifica:]
+    B --> C[1. Que las historias de usuario estén completas]
+    B --> D[2. Que los requisitos estén correctamente definidos]
+    B --> E[3. Intenta regenerar el diagrama]"""
         except Exception as e:
-            mermaid_code = f"[ERROR AL GENERAR DIAGRAMA] {str(e)}"
+            error_msg = str(e)
+            messages.error(request, '❌ Error al generar el diagrama. Se mostrará un diagrama de error.')
+            # Proporcionar un diagrama de error informativo
+            mermaid_code = f"""graph TD
+    A[Error en la Generación] --> B[Causas posibles:]
+    B --> C[1. Historias de usuario incompletas o mal formadas]
+    B --> D[2. Requisitos no extraídos correctamente]
+    B --> E[3. Error en la generación del diagrama]
     
+    style A fill:#ff6b6b,stroke:#333,stroke-width:4px
+    style B fill:#4ecdc4,stroke:#333,stroke-width:2px"""
+    
+    # Verificar si hay errores en el diagrama
+    tiene_error = False
+    if is_mermaid:
+        tiene_error = ("Error" in artefacto.contenido or 
+                      "Syntax error" in artefacto.contenido or
+                      not artefacto.contenido.strip())
+
     return render(request, 'documentacion/ver_artefacto.html', {
         'artefacto': artefacto,
         'is_mermaid': is_mermaid,
         'historia_usuario': historia_usuario,
+        'tiene_error': tiene_error,
     })
 
 # ===================== IA GENERACIÓN AUTOMÁTICA ARTEFACTOS Y SUBARTEFACTOS =====================
@@ -442,7 +514,24 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
 
     except Exception as e:
         import traceback
-        contenido = f"[ERROR IA] {str(e)}\n{traceback.format_exc()}"
+        error_msg = str(e)
+        
+        # Mensajes de error personalizados según el tipo de error
+        if "got an unexpected keyword argument 'texto'" in error_msg:
+            messages.error(request, '❌ Error: Falta generar la Historia de Usuario y los Requisitos antes de generar este diagrama.')
+            if subartefacto.nombre in ARTEFACTOS_MERMAID:
+                contenido = "Error al generar el diagrama:\n\n1. Asegúrate de tener una Historia de Usuario generada\n2. Verifica que los Requisitos se hayan extraído correctamente\n3. Si el problema persiste, intenta regenerar la Historia de Usuario"
+            else:
+                contenido = "Error: Primero debes generar la Historia de Usuario"
+        elif "got an unexpected keyword argument 'historias_usuario'" in error_msg:
+            messages.error(request, '❌ Error: El formato del diagrama no es compatible con la última versión.')
+            contenido = "Error: El diagrama requiere actualización. Por favor, contacta al administrador."
+        elif "KeyError" in error_msg:
+            messages.error(request, '❌ Error: Este tipo de artefacto no está configurado correctamente.')
+            contenido = "Error: Tipo de artefacto no configurado correctamente"
+        else:
+            messages.error(request, f'❌ Error al generar el contenido con IA: {error_msg}')
+            contenido = f"[ERROR IA] {error_msg}\n{traceback.format_exc()}"
 
     artefacto = Artefacto.objects.create(
         proyecto=proyecto,

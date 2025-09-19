@@ -62,6 +62,13 @@
     {% if artefacto.titulo in "Diagrama de flujo Diagrama de clases Diagrama de Entidad-Relacion Diagrama de secuencia Diagrama de estado Diagrama de C4-contexto Diagrama de C4-contenedor Diagrama de C4-implementación" %}
     <div class="card p-3 my-4 shadow border-info">
         <h5 class="text-center text-white bg-info">🧩 Diagrama generado</h5>
+        
+        <div class="text-center mb-3 text-muted">
+            <small class="fst-italic">
+                💡 Nota: Si observas algún error en la generación del diagrama, por favor utiliza el botón "Regenerar con IA" 
+                en la página de edición para generar una nueva versión.
+            </small>
+        </div>
 
         <div class="text-end mb-3">
             <button onclick="descargardiagrama('svg')" class="btn btn-outline-success btn-sm me-2">⬇️ SVG</button>
