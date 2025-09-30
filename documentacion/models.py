@@ -7,6 +7,7 @@ from typing import Any, List, Tuple
 class Project(models.Model):
     nombre: models.CharField = models.CharField(max_length=100)
     descripcion: models.TextField = models.TextField(blank=True)
+    objetivo_principal: models.TextField = models.TextField(verbose_name="Objetivo Principal", null=True, blank=True)
     propietario: models.ForeignKey = models.ForeignKey(User, on_delete=models.CASCADE, related_name='proyectos')
     creado: models.DateTimeField = models.DateTimeField(auto_now_add=True)
     actualizado: models.DateTimeField = models.DateTimeField(auto_now=True)
@@ -89,4 +90,44 @@ class Artefacto(models.Model):
         if self.subartefacto and not self.fase:
             self.fase = self.subartefacto.fase
         super().save(*args, **kwargs)
+
+
+class UsuarioFinal(models.Model):
+    proyecto: models.ForeignKey = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='usuarios')
+    nombre: models.CharField = models.CharField(max_length=100)
+    creado: models.DateTimeField = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('proyecto', 'nombre')
+        verbose_name = "Usuario Final"
+        verbose_name_plural = "Usuarios Finales"
+
+    def __str__(self) -> str:
+        return f"{self.nombre} - {self.proyecto.nombre}"
+
+
+class NecesidadUsuario(models.Model):
+    usuario: models.ForeignKey = models.ForeignKey(UsuarioFinal, on_delete=models.CASCADE, related_name='necesidades')
+    descripcion: models.TextField = models.TextField()
+    creado: models.DateTimeField = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Necesidad de Usuario"
+        verbose_name_plural = "Necesidades de Usuarios"
+
+    def __str__(self) -> str:
+        return f"{self.descripcion[:50]}... - {self.usuario.nombre}"
+
+
+class ProcesoUsuario(models.Model):
+    usuario: models.ForeignKey = models.ForeignKey(UsuarioFinal, on_delete=models.CASCADE, related_name='procesos')
+    descripcion: models.TextField = models.TextField()
+    creado: models.DateTimeField = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Proceso de Usuario"
+        verbose_name_plural = "Procesos de Usuarios"
+
+    def __str__(self) -> str:
+        return f"{self.descripcion[:50]}... - {self.usuario.nombre}"
         

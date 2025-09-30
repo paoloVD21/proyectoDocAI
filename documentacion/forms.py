@@ -65,7 +65,7 @@ def texto_coherente(texto: str) -> bool:
 # ===== creacion y editar proyecto ============
 class ProjectForm(forms.ModelForm):
     """
-    Formulario para crear o editar un proyecto.
+    Formulario mejorado para crear o editar un proyecto con información detallada.
     """
     nombre = forms.CharField(
         label='Nombre del Proyecto',
@@ -77,17 +77,28 @@ class ProjectForm(forms.ModelForm):
     )
 
     descripcion = forms.CharField(
-        label='Descripción',
+        label='Descripción General',
         widget=forms.Textarea(attrs={
             'class': 'form-control',
-            'rows': 4,
-            'placeholder': 'Ingrese una breve descripción del proyecto'
+            'rows': 3,
+            'placeholder': 'Describa brevemente el propósito general del proyecto'
         })
     )
 
+    objetivo_principal = forms.CharField(
+        label='Objetivo Principal',
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 2,
+            'placeholder': 'Defina el objetivo principal que se busca alcanzar con este proyecto'
+        })
+    )
+
+
+
     class Meta:
         model = Project
-        fields = ['nombre', 'descripcion']
+        fields = ['nombre', 'descripcion', 'objetivo_principal']
 
 # ===== validadcion proyecto ============
     def clean_nombre(self):
@@ -208,22 +219,13 @@ class ArtefactoForm(forms.ModelForm):
 # ===== registarse  y loguearse  ============
 class CustomUserCreationForm(UserCreationForm):
     """
-    Formulario personalizado de registro de usuario con campo de email obligatorio.
+    Formulario personalizado de registro de usuario.
     """
     username = forms.CharField(
         label='Nombre de usuario',
         widget=forms.TextInput(attrs={
             'class': 'form-control',
             'placeholder': 'Ingrese un nombre de usuario'
-        })
-    )
-            
-    email = forms.EmailField(
-        required=True,
-        label="Correo electrónico",
-        widget=forms.EmailInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'correo@ejemplo.com'
         })
     )
 
@@ -245,7 +247,7 @@ class CustomUserCreationForm(UserCreationForm):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password1', 'password2']
+        fields = ['username', 'password1', 'password2']
 
     # ===== validadcion registro ============
     def clean_username(self):

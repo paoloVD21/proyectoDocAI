@@ -25,25 +25,27 @@
                         <div class="mb-3">
                             {{ form.username.label_tag }}
                             {{ form.username|add_class:"form-control" }}
-                            <div class="invalid-feedback">Debe contener solo letras, números o guion bajo, entre 3 y 20 caracteres.</div>
+                            {% if messages %}
+                                {% for message in messages %}
+                                    {% if 'error' in message.tags %}
+                                        <div class="text-danger small mt-1">{{ message }}</div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
                         </div>
 
                         <div class="mb-3">
-                            {{ form.email.label_tag }}
-                            {{ form.email|add_class:"form-control" }}
-                            <div class="invalid-feedback">Ingrese un correo electrónico válido.</div>
-                        </div>
-
-                        <div class="mb-3">
-                            {{ form.password1.label_tag }}
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                {{ form.password1.label_tag }}
+                                <i class="fas fa-info-circle text-primary" data-bs-toggle="tooltip" data-bs-placement="right" 
+                                   title="La contraseña debe tener:&#13;• Al menos 8 caracteres&#13;• Una mayúscula&#13;• Una minúscula&#13;• Un número&#13;• Un símbolo"></i>
+                            </div>
                             {{ form.password1|add_class:"form-control" }}
-                            <div class="invalid-feedback">La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.</div>
                         </div>
 
                         <div class="mb-3">
                             {{ form.password2.label_tag }}
                             {{ form.password2|add_class:"form-control" }}
-                            <div class="invalid-feedback">Las contraseñas no coinciden.</div>
                         </div>
 
                         <button type="submit" class="btn btn-primary w-100">Registrarse</button>
@@ -58,33 +60,97 @@
     </div>
 </div>
 <script>
-function validarCampo(inputId, regex, mensaje, compararCon = null) {
-    const input = document.getElementById(inputId);
-    const feedback = input.nextElementSibling;
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips de Bootstrap
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl, {
+            html: true
+        });
+    });
 
-    function validar() {
-        let valido = true;
-        if (regex) valido = regex.test(input.value);
-        if (compararCon) {
-            const comparador = document.getElementById(compararCon);
-            valido = valido && (input.value === comparador.value);
-        }
-        if (valido || input.value.length === 0) {
-            input.classList.remove("is-invalid");
+    const form = document.querySelector('form');
+    const username = document.getElementById('id_username');
+    const usernameFeedback = document.createElement('div');
+    usernameFeedback.className = 'text-danger small mt-1';
+    username.parentNode.appendChild(usernameFeedback);
+
+    // Variable para controlar el timeout de la validación
+    let timeoutId;
+
+    // Función para validar el usuario
+    async function validarUsuario() {
+        const response = await fetch(`/validar-usuario/?username=${username.value}`);
+        const data = await response.json();
+        
+        if (data.exists) {
+            username.classList.add('is-invalid');
+            username.classList.remove('is-valid');
+            usernameFeedback.textContent = 'Este nombre de usuario ya existe';
+            return false;
+        } else if (!username.value.match(/^[a-zA-Z0-9_]{3,20}$/)) {
+            username.classList.add('is-invalid');
+            username.classList.remove('is-valid');
+            usernameFeedback.textContent = 'Debe contener solo letras, números o guion bajo, entre 3 y 20 caracteres';
+            return false;
         } else {
-            input.classList.add("is-invalid");
-            feedback.textContent = mensaje;
+            username.classList.remove('is-invalid');
+            username.classList.add('is-valid');
+            usernameFeedback.textContent = '';
+            return true;
         }
     }
 
-    input.addEventListener("input", validar);
-    if (compararCon) document.getElementById(compararCon).addEventListener("input", validar);
-}
+    // Validar usuario mientras se escribe
+    username.addEventListener('input', function() {
+        clearTimeout(timeoutId);
+        if (username.value.trim() === '') {
+            username.classList.remove('is-invalid', 'is-valid');
+            usernameFeedback.textContent = '';
+            return;
+        }
+        timeoutId = setTimeout(() => {
+            if (username.value.length >= 3) {
+                validarUsuario();
+            }
+        }, 300); // Esperar 300ms después de que el usuario deje de escribir
+    });
 
-validarCampo("id_username", /^[a-zA-Z0-9_]{3,20}$/, "Debe contener solo letras, números o guion bajo, entre 3 y 20 caracteres.");
-validarCampo("id_email", /^[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}$/, "Ingrese un correo electrónico válido.");
-validarCampo("id_password1", /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/, "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.");
-validarCampo("id_password2", null, "Las contraseñas no coinciden.", "id_password1");
+    // Validar formulario al enviar
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        let isValid = true;
+
+        // Validar username
+        if (username.value) {
+            isValid = await validarUsuario();
+        }
+
+        // Validar contraseña
+        const password1 = document.getElementById('id_password1');
+        const password2 = document.getElementById('id_password2');
+        
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+        if (!password1.value.match(passwordRegex)) {
+            password1.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            password1.classList.remove('is-invalid');
+        }
+
+        // Validar coincidencia de contraseñas
+        if (password1.value !== password2.value) {
+            password2.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            password2.classList.remove('is-invalid');
+        }
+
+        if (isValid) {
+            form.submit();
+        }
+    });
+});
 </script>
 
 <style>

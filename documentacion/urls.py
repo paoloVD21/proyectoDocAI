@@ -2,7 +2,7 @@ from django.urls import path
 from . import views
 from django.views.generic import TemplateView
 from django.contrib.auth import views as auth_views
-from documentacion.views import login_view
+from documentacion.views import login_view, validar_usuario
 
 
 urlpatterns = [
@@ -20,5 +20,5 @@ urlpatterns = [
     path('proyecto/<int:proyecto_id>/generar/<str:subartefacto_nombre>/', views.generar_artefacto, name='generar_artefacto'),#generar artefactos
     path('artefacto/eliminar/<int:artefacto_id>/', views.eliminar_artefacto, name='eliminar_artefacto'),# eliminar artefacto
     path('artefacto/<int:artefacto_id>/descargar/', views.descargar_diagrama, name='descargar_diagrama'), #descaegar diagramas 
-
+    path('validar-usuario/', validar_usuario, name='validar_usuario'), # Validar disponibilidad de usuario
 ]

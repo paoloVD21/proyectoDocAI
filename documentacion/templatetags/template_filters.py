@@ -1,7 +1,43 @@
 from django import template
+from django.forms.boundfield import BoundField
 import re
 
 register = template.Library()
+
+@register.filter(name='get')
+def get(dictionary, key):
+    """
+    Obtiene un valor de un diccionario por su clave
+    """
+    return dictionary.get(key, '')
+
+@register.filter(name='getattribute')
+def getattribute(form, field_name):
+    """
+    Obtiene un campo del formulario por nombre
+    """
+    try:
+        return form[field_name]
+    except:
+        return None
+
+@register.filter(name='label_tag')
+def label_tag(field):
+    """
+    Obtiene la etiqueta del campo
+    """
+    if isinstance(field, BoundField):
+        return field.label_tag()
+    return ""
+
+@register.filter(name='error')
+def error(field):
+    """
+    Obtiene los errores del campo
+    """
+    if isinstance(field, BoundField):
+        return field.errors
+    return None
 
 @register.filter(name='parse_historias')
 def parse_historias(texto):

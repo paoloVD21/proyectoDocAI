@@ -1,19 +1,24 @@
 from django.shortcuts import render, redirect, get_object_or_404 
 from django.contrib.auth.decorators import login_required 
 from django.contrib.auth import authenticate,login, logout 
+from django.contrib.auth.models import User
 from django.views.decorators.http import require_POST 
 from django.http import JsonResponse, HttpResponse 
-from django.contrib.auth.forms import AuthenticationForm 
+from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
-from .models import Project, Artefacto, Fase, SubArtefacto
-from .forms import ProjectForm, ArtefactoForm, CustomUserCreationForm
+from .models import (
+    Project, Artefacto, Fase, SubArtefacto,
+    UsuarioFinal, NecesidadUsuario, ProcesoUsuario
+)
+from .forms import CustomUserCreationForm
+from .forms import ProjectForm, ArtefactoForm
 from core.ia import generar_subartefacto_con_prompt, extraer_requisitos, _generar_contenido, PROMPTS
 import datetime
 
 # ===== TIPOS DE ARTEFACTOS DEFINIDOS DIRECTAMENTE =====
 
 ARTEFACTOS_TEXTO = [
-    "Historia de Usuario",
+    "Caso de uso",
     "Requisitos",
     "caja negra",
     "smoke"
@@ -24,7 +29,6 @@ ARTEFACTOS_MERMAID = [
     "Diagrama de clases",
     "Diagrama de Entidad-Relacion",
     "Diagrama de secuencia",
-    "Diagrama de estado",
     "Diagrama de C4-contexto",
     "Diagrama de C4-contenedor",
     "Diagrama de C4-implementación"
@@ -81,16 +85,98 @@ def crear_proyecto(request):
     if request.method == 'POST':
         form = ProjectForm(request.POST)
         if form.is_valid():
+            # Guardar el proyecto
             proyecto = form.save(commit=False)
             proyecto.propietario = request.user
             proyecto.save()
 
+            try:
+                # Obtener datos de los usuarios y sus detalles
+                usuarios_finales = request.POST.get('usuarios_finales', '').strip().split('\n')
+                necesidades_raw = request.POST.get('necesidades_usuarios', '')
+                procesos_raw = request.POST.get('procesos_principales', '')
+
+                def extract_user_data(raw_text, user_name):
+                    """Extraer datos para un usuario específico"""
+                    if f'[{user_name}]' not in raw_text:
+                        return []
+                    
+                    # Encontrar el bloque específico del usuario
+                    inicio = raw_text.find(f'[{user_name}]')
+                    if inicio == -1:
+                        return []
+                        
+                    # Buscar el siguiente usuario o el final del texto
+                    siguiente_usuario = -1
+                    siguiente_inicio = raw_text.find('\n[', inicio + 1)
+                    if siguiente_inicio != -1:
+                        siguiente_usuario = siguiente_inicio
+                    
+                    # Extraer el contenido del usuario actual
+                    if siguiente_usuario != -1:
+                        contenido = raw_text[inicio:siguiente_usuario]
+                    else:
+                        contenido = raw_text[inicio:]
+                    
+                    # Remover el encabezado y dividir las líneas
+                    contenido = contenido.replace(f'[{user_name}]', '').strip()
+                    return [linea.strip() for linea in contenido.split('\n') if linea.strip()]
+
+                # Procesar cada usuario
+                for usuario_nombre in usuarios_finales:
+                    if usuario_nombre.strip():
+                        # Crear el usuario
+                        usuario = UsuarioFinal.objects.create(
+                            proyecto=proyecto,
+                            nombre=usuario_nombre.strip()
+                        )
+
+                        # Procesar necesidades del usuario
+                        necesidades = extract_user_data(necesidades_raw, usuario_nombre)
+                        for necesidad in necesidades:
+                            if necesidad:
+                                NecesidadUsuario.objects.create(
+                                    usuario=usuario,
+                                    descripcion=necesidad
+                                )
+
+                        # Procesar procesos del usuario
+                        procesos = extract_user_data(procesos_raw, usuario_nombre)
+                        for proceso in procesos:
+                            if proceso:
+                                ProcesoUsuario.objects.create(
+                                    usuario=usuario,
+                                    descripcion=proceso
+                                )
+
+                # Crear fases y subartefactos solo si se guardó todo correctamente
+                fases_con_subartefactos = {
+                    "Análisis": ["Caso de uso", "Requisitos"],
+                    "Diseño": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de clases", "Diagrama de Entidad-Relacion"],
+                    "Pruebas": ["caja negra", "smoke"],
+                    "Despliegue": ["Diagrama de C4-contexto", "Diagrama de C4-contenedor","Diagrama de C4-implementación"]
+                }
+
+                for nombre_fase, subartefactos in fases_con_subartefactos.items():
+                    fase = Fase.objects.create(proyecto=proyecto, nombre=nombre_fase)
+                    SubArtefacto.objects.bulk_create([
+                        SubArtefacto(fase=fase, nombre=nombre_sub) for nombre_sub in subartefactos
+                    ])
+
+                messages.success(request, "Proyecto creado exitosamente.")
+                return redirect('dashboard')
+
+            except Exception as e:
+                # Si algo falla, eliminar el proyecto y todos sus datos relacionados
+                proyecto.delete()
+                messages.error(request, f"Error al crear el proyecto: {str(e)}")
+                return render(request, 'documentacion/crear_proyecto.html', {'form': form})
+
             fases_con_subartefactos = {
-                "Análisis Requisitos": ["Historia de Usuario", "Requisitos"],
-                "Diseño": ["Diagrama de clases", "Diagrama de Entidad-Relacion"],
-                "Desarrollo": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de estado"],
+                "Análisis": ["Caso de uso", "Requisitos"],
+                "Diseño": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de clases", "Diagrama de Entidad-Relacion"],
                 "Pruebas": ["caja negra", "smoke"],
-                "Despliegue": ["Diagrama de C4-contexto", "Diagrama de C4-contenedor","Diagrama de C4-implementación" ]
+                "Despliegue": ["Diagrama de C4-contexto", "Diagrama de C4-contenedor","Diagrama de C4-implementación"]
             }
 
             for nombre_fase, subartefactos in fases_con_subartefactos.items():
@@ -102,7 +188,10 @@ def crear_proyecto(request):
             return redirect('dashboard')
     else:
         form = ProjectForm()
-    return render(request, 'documentacion/crear_proyecto.html', {'form': form})
+
+    return render(request, 'documentacion/crear_proyecto.html', {
+        'form': form
+    })
 
 @login_required
 def editar_proyecto(request, pk):
@@ -126,14 +215,16 @@ def eliminar_proyecto(request, proyecto_id):
 
 # ===================== REGISTRO USUARIO=====================
 
+def validar_usuario(request):
+    username = request.GET.get('username', '')
+    existe = User.objects.filter(username=username).exists()
+    return JsonResponse({'exists': existe})
+
 def signup(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=False)
-            user.email = form.cleaned_data['email']
-            user.save()
-
+            user = form.save()
             # Autenticar con username y password1 para obtener el backend
             user = authenticate(
                 request,
@@ -161,9 +252,8 @@ def cerrar_sesion(request):
 def detalle_proyecto(request, proyecto_id):
     proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
     orden_deseado = [
-        "Análisis Requisitos",
+        "Análisis",
         "Diseño",
-        "Desarrollo",
         "Pruebas",
         "Despliegue"
     ]
@@ -173,9 +263,8 @@ def detalle_proyecto(request, proyecto_id):
     fases = sorted(fases_queryset, key=lambda f: orden_deseado.index(f.nombre) if f.nombre in orden_deseado else 999)
 
     orden_subartefactos = {
-        "Análisis Requisitos": ["Historia de Usuario", "Requisitos"],
-        "Diseño": ["Diagrama de clases", "Diagrama de Entidad-Relacion"],
-        "Desarrollo": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de estado"],
+        "Análisis": ["Caso de uso", "Requisitos"],
+        "Diseño": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de clases", "Diagrama de Entidad-Relacion"],
         "Pruebas": ["caja negra", "smoke"],
         "Despliegue": ["Diagrama de C4-contexto", "Diagrama de C4-contenedor", "Diagrama de C4-implementación"]
     }
@@ -189,9 +278,9 @@ def detalle_proyecto(request, proyecto_id):
 
     artefactos = proyecto.artefactos.select_related('fase', 'subartefacto') # pyright: ignore[reportAttributeAccessIssue]
 
-    #=======  Buscar HU y verificar si tiene requisitos ===================
-    hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
-    hu_con_requisitos = hu and hu.contexto and hu.contexto.strip() != ""
+    #=======  Buscar Caso de uso y verificar si tiene requisitos ===================
+    caso_uso = artefactos.filter(titulo__iexact="Caso de uso").first()
+    caso_uso_con_requisitos = caso_uso and caso_uso.contexto and caso_uso.contexto.strip() != ""
     
     # Verificar si ya se generaron los requisitos
     requisitos_generados = Artefacto.objects.filter(
@@ -203,7 +292,7 @@ def detalle_proyecto(request, proyecto_id):
         'proyecto': proyecto,
         'fases': fases,
         'artefactos': artefactos,
-        'hu_con_requisitos': hu_con_requisitos,
+        'caso_uso_con_requisitos': caso_uso_con_requisitos,
         'requisitos_generados': requisitos_generados
     })
 
@@ -228,18 +317,18 @@ def crear_artefacto(request, proyecto_id):
                         descripcion=proyecto.descripcion
                     )
                 else:
-                    # Obtener Historia de Usuario y Requisitos
-                    hu = Artefacto.objects.filter(
+                    # Obtener Caso de uso y Requisitos
+                    caso_uso = Artefacto.objects.filter(
                         proyecto=proyecto,
-                        titulo="Historia de Usuario"
+                        titulo="Caso de uso"
                     ).first()
                     
-                    historias_usuario = hu.contenido if hu else ""
-                    requisitos = hu.contexto if hu else ""
+                    caso_uso_contenido = caso_uso.contenido if caso_uso else ""
+                    requisitos = caso_uso.contexto if caso_uso else ""
                     
                     contenido = generar_subartefacto_con_prompt(
                         tipo=artefacto.get_tipo_display(),
-                        historias_usuario=historias_usuario,
+                        caso_uso=caso_uso_contenido,
                         requisitos=requisitos
                     )
                     contenido = limpiar_mermaid(contenido)
@@ -272,9 +361,9 @@ def editar_artefacto(request, artefacto_id):
                     artefacto.titulo = form.cleaned_data['titulo']
                     artefacto.tipo = form.cleaned_data['tipo'] 
                     
-                    if artefacto.titulo.lower() == "historia de usuario":
+                    if artefacto.titulo.lower() == "caso de uso":
                         contenido = generar_subartefacto_con_prompt(
-                            tipo="Historia de Usuario",
+                            tipo="Caso de uso",
                             nombre_proyecto=proyecto.nombre,
                             descripcion=proyecto.descripcion
                         )
@@ -288,27 +377,27 @@ def editar_artefacto(request, artefacto_id):
                         except Exception as e:
                             artefacto.contexto = "[ERROR AL EXTRAER REQUISITOS]"
                     elif artefacto.titulo.lower() == "requisitos":
-                        # Buscar la Historia de Usuario existente
-                        hu = Artefacto.objects.filter(
+                        # Buscar el Caso de uso existente
+                        caso_uso = Artefacto.objects.filter(
                             proyecto=proyecto,
-                            titulo="Historia de Usuario"
+                            titulo="Caso de uso"
                         ).first()
                         
-                        if hu:
-                            # Generar requisitos a partir de las historias de usuario
+                        if caso_uso:
+                            # Generar requisitos a partir del caso de uso
                             contenido = generar_subartefacto_con_prompt(
                                 tipo="Requisitos",
-                                texto=hu.contenido
+                                texto=caso_uso.contenido
                             )
                             artefacto.contenido = contenido
                             artefacto.generado_por_ia = True
                         else:
-                            artefacto.contenido = "Error: Primero debe crear la Historia de Usuario"
+                            artefacto.contenido = "Error: Primero debe crear el Caso de uso"
                     else:
                         # Obtener Historia de Usuario y Requisitos
                         hu = Artefacto.objects.filter(
                             proyecto=proyecto,
-                            titulo="Historia de Usuario"
+                            titulo="Caso de uso"
                         ).first()
                         
                         historias_usuario = hu.contenido if hu else ""
@@ -317,8 +406,19 @@ def editar_artefacto(request, artefacto_id):
                         if artefacto.titulo in ARTEFACTOS_MERMAID:
                             contenido = generar_subartefacto_con_prompt(
                                 tipo=artefacto.titulo,
-                                historias_usuario=historias_usuario,
+                                caso_uso=caso_uso.contenido if caso_uso else "",
                                 requisitos=requisitos
+                            )
+                        caso_uso = Artefacto.objects.filter(
+                            proyecto=proyecto,
+                            titulo="Caso de uso"
+                        ).first()
+
+                        if artefacto.titulo in ARTEFACTOS_MERMAID:
+                            contenido = generar_subartefacto_con_prompt(
+                                tipo=artefacto.titulo,
+                                caso_uso=caso_uso.contenido if caso_uso else "",
+                                requisitos=caso_uso.contexto if caso_uso else ""
                             )
                         else:
                             contenido = generar_subartefacto_con_prompt(
@@ -327,19 +427,19 @@ def editar_artefacto(request, artefacto_id):
                             )
                         artefacto.contenido = limpiar_mermaid(contenido)
                         artefacto.generado_por_ia = True
-
-                    messages.success(request, '♻️ Artefacto regenerado correctamente con IA.')
+                        
+                        messages.success(request, '♻️ Artefacto regenerado correctamente con IA.')
 
                 except Exception as e:
                     import traceback
                     error_msg = str(e)
                     
                     if "got an unexpected keyword argument 'texto'" in error_msg:
-                        messages.error(request, '❌ Error: Falta generar la Historia de Usuario y los Requisitos antes de regenerar este diagrama.')
+                        messages.error(request, '❌ Error: Falta generar el Caso de uso y los Requisitos antes de regenerar este diagrama.')
                         if artefacto.titulo in ARTEFACTOS_MERMAID:
                             artefacto.contenido = "Error al generar el diagrama:\n\n1. Asegúrate de tener una Historia de Usuario generada\n2. Verifica que los Requisitos se hayan extraído correctamente\n3. Si el problema persiste, intenta regenerar la Historia de Usuario"
                         else:
-                            artefacto.contenido = "Error: Primero debes generar la Historia de Usuario"
+                            artefacto.contenido = "Error: Primero debes generar el Caso de uso"
                     elif "got an unexpected keyword argument 'historias_usuario'" in error_msg:
                         messages.error(request, '❌ Error: El formato del diagrama no es compatible con la última versión.')
                         artefacto.contenido = "Error: El diagrama requiere actualización. Por favor, contacta al administrador."
@@ -388,26 +488,26 @@ def ver_artefacto(request, artefacto_id):
     artefacto = get_object_or_404(Artefacto, id=artefacto_id)
     is_mermaid = artefacto.titulo in ARTEFACTOS_MERMAID
     
-    # Si es artefacto de requisitos, obtener la Historia de Usuario
-    historia_usuario = None
+    # Si es artefacto de requisitos, obtener el Caso de uso
+    caso_uso = None
     if artefacto.titulo == "Requisitos":
-        historia_usuario = Artefacto.objects.filter(
+        caso_uso = Artefacto.objects.filter(
             proyecto=artefacto.proyecto,
-            titulo="Historia de Usuario"
+            titulo="Caso de uso"
         ).first()
     
     if artefacto.titulo.lower() in PROMPTS and artefacto.titulo.lower() in ARTEFACTOS_MERMAID:
         try:
-            # Obtener Historia de Usuario y Requisitos
-            hu = Artefacto.objects.filter(
+            # Obtener Caso de uso y Requisitos
+            caso_uso = Artefacto.objects.filter(
                 proyecto=artefacto.proyecto,
-                titulo="Historia de Usuario"
+                titulo="Caso de uso"
             ).first()
             
-            historias_usuario = hu.contenido if hu else ""
-            requisitos = hu.contexto if hu else ""
+            caso_uso_contenido = caso_uso.contenido if caso_uso else ""
+            requisitos = caso_uso.contexto if caso_uso else ""
             
-            prompt = PROMPTS[artefacto.titulo](historias_usuario, requisitos)
+            prompt = PROMPTS[artefacto.titulo](caso_uso_contenido, requisitos)
             mermaid_code = _generar_contenido(prompt)
             
             # Validar que el código Mermaid no esté vacío y tenga la estructura correcta
@@ -418,7 +518,7 @@ def ver_artefacto(request, artefacto_id):
                 messages.error(request, '❌ Error de sintaxis en el diagrama. El diagrama será regenerado automáticamente.')
                 mermaid_code = f"""graph TD
     A[Error de Sintaxis] --> B[Por favor verifica:]
-    B --> C[1. Que las historias de usuario estén completas]
+    B --> C[1. Que el caso de uso esté completo]
     B --> D[2. Que los requisitos estén correctamente definidos]
     B --> E[3. Intenta regenerar el diagrama]"""
         except Exception as e:
@@ -427,7 +527,7 @@ def ver_artefacto(request, artefacto_id):
             # Proporcionar un diagrama de error informativo
             mermaid_code = f"""graph TD
     A[Error en la Generación] --> B[Causas posibles:]
-    B --> C[1. Historias de usuario incompletas o mal formadas]
+    B --> C[1. Caso de uso incompleto o mal formado]
     B --> D[2. Requisitos no extraídos correctamente]
     B --> E[3. Error en la generación del diagrama]
     
@@ -444,7 +544,7 @@ def ver_artefacto(request, artefacto_id):
     return render(request, 'documentacion/ver_artefacto.html', {
         'artefacto': artefacto,
         'is_mermaid': is_mermaid,
-        'historia_usuario': historia_usuario,
+        'caso_uso': caso_uso,
         'tiene_error': tiene_error,
     })
 
@@ -455,15 +555,20 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
     proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
     subartefacto = get_object_or_404(SubArtefacto, fase__proyecto=proyecto, nombre=subartefacto_nombre)
 
+    caso_uso = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo="Caso de uso"
+    ).first()
+
     if subartefacto.nombre not in ARTEFACTOS_VALIDOS:
         return JsonResponse({"error": "Tipo de artefacto inválido."}, status=400)
     
     artefactos = Artefacto.objects.filter(proyecto=proyecto)
-    hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
-    hu_con_requisitos = hu and hu.contexto and hu.contexto.strip() != ""
+    caso_uso = artefactos.filter(titulo__iexact="Caso de uso").first()
+    caso_uso_con_requisitos = caso_uso and caso_uso.contexto and caso_uso.contexto.strip() != ""
 
-    if subartefacto.nombre not in ARTEFACTOS_TEXTO and not hu_con_requisitos:
-        messages.warning(request, "⚠️ Primero debes generar la Historia de Usuario con requisitos antes de crear este tipo de artefacto.")
+    if subartefacto.nombre not in ARTEFACTOS_TEXTO and not caso_uso_con_requisitos:
+        messages.warning(request, "⚠️ Primero debes generar el Caso de uso con requisitos antes de crear este tipo de artefacto.")
         return redirect('detalle_proyecto', proyecto_id=proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
 
     artefacto_existente = Artefacto.objects.filter(
@@ -475,20 +580,20 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
 
     try:
         if subartefacto.nombre == "Requisitos":
-            # Buscar la Historia de Usuario existente
-            hu = Artefacto.objects.filter(
+            # Buscar el Caso de uso existente
+            caso_uso = Artefacto.objects.filter(
                 proyecto=proyecto,
-                titulo="Historia de Usuario"
+                titulo="Caso de uso"
             ).first()
             
-            if hu:
-                # Generar requisitos a partir de las historias de usuario
+            if caso_uso:
+                # Generar requisitos a partir del caso de uso
                 contenido = generar_subartefacto_con_prompt(
                     tipo="Requisitos",
-                    texto=hu.contenido
+                    texto=caso_uso.contenido
                 )
             else:
-                contenido = "Error: Primero debe crear la Historia de Usuario"
+                contenido = "Error: Primero debe crear el Caso de uso"
         elif subartefacto.nombre in ARTEFACTOS_TEXTO:
             contenido = generar_subartefacto_con_prompt(
                 tipo=subartefacto.nombre,
@@ -496,18 +601,18 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
                 descripcion=proyecto.descripcion
             )
         else:
-            # Obtener Historia de Usuario y Requisitos
-            hu = Artefacto.objects.filter(
+            # Obtener Caso de uso y Requisitos
+            caso_uso = Artefacto.objects.filter(
                 proyecto=proyecto,
-                titulo="Historia de Usuario"
+                titulo="Caso de uso"
             ).first()
             
-            historias_usuario = hu.contenido if hu else ""
-            requisitos = hu.contexto if hu else ""
+            caso_uso_contenido = caso_uso.contenido if caso_uso else ""
+            requisitos = caso_uso.contexto if caso_uso else ""
             
             contenido = generar_subartefacto_con_prompt(
                 tipo=subartefacto.nombre,
-                historias_usuario=historias_usuario,
+                caso_uso=caso_uso_contenido,
                 requisitos=requisitos
             )
             contenido = limpiar_mermaid(contenido)
@@ -542,9 +647,9 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
         generado_por_ia=True
     )
 
-    if artefacto.titulo.lower() == "historia de usuario":
+    if artefacto.titulo.lower() == "caso de uso":
             contenido = generar_subartefacto_con_prompt(
-                tipo="Historia de Usuario",
+                tipo="Caso de uso",
                 nombre_proyecto=proyecto.nombre,
                 descripcion=proyecto.descripcion
             )
@@ -559,7 +664,7 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
                 artefacto.contexto = "[ERROR AL EXTRAER REQUISITOS]"
 
             artefacto.save()
-            messages.success(request, "Historia de Usuario generada con requisitos.")
+            messages.success(request, "Caso de uso generado con requisitos.")
             return redirect('ver_artefacto', artefacto.id) # pyright: ignore[reportAttributeAccessIssue]
 
     return redirect('ver_artefacto', artefacto_id=artefacto.id) # pyright: ignore[reportAttributeAccessIssue]

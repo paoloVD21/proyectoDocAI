@@ -1,45 +1,104 @@
 {% extends 'base.html' %}
 {% load widget_tweaks %}
 {% load static %}
+{% load template_filters %}
 
 {% block title %}Crear Proyecto{% endblock %}
 
-{% block content %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/crear_proyecto.css' %}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
 
-<div class="container mt-1" style="max-width: 600px;">
+{% block content %}
+<div class="container mt-4" style="max-width: 900px;">
     <div class="card shadow">
-            <div class="card-header bg-primary text-white text-center">
-                <h4 class="mb-0">Crear Nuevo Proyecto</h4>
-            </div>
+        <div class="card-header bg-gradient text-white" style="background-color: #4a90e2;">
+            <h4 class="mb-0 text-center">Crear Nuevo Proyecto</h4>
+        </div>
         <div class="card-body">
-            <form method="post" novalidate>
+            <form method="post" id="projectForm" novalidate>
                 {% csrf_token %}
 
                 {% if form.non_field_errors %}
-                    <div class="alert alert-danger">
-                        {{ form.non_field_errors }}
-                    </div>
-                        {% endif %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
 
-                    {% for field in form %}
-                        <div class="mb-3">
-                            {{ field.label_tag }}
-                            {{ field|add_class:"form-control" }}
-                            {% if field.errors %}
-                                <div class="text-danger small">{{ field.errors }}</div>
-                            {% endif %}
+                <!-- Información Básica -->
+                <h5 class="section-title mb-4">Información Básica</h5>
+                <div class="form-group mb-4">
+                    <div class="field-label">
+                        {{ form.nombre.label_tag }}
+                    </div>
+                    {{ form.nombre|add_class:"form-control"|attr:"placeholder:Ej: Sistema de Gestión de Inventarios para Farmacia"|attr:"required:required" }}
+                    {% if form.nombre.errors %}
+                        <div class="text-danger small mt-1">{{ form.nombre.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group mb-4">
+                    <div class="field-label">
+                        {{ form.descripcion.label_tag }}
+                    </div>
+                    {{ form.descripcion|add_class:"form-control"|attr:"placeholder:Describa el propósito general del proyecto y el problema principal que busca resolver"|attr:"required:required" }}
+                    {% if form.descripcion.errors %}
+                        <div class="text-danger small mt-1">{{ form.descripcion.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group mb-4">
+                    <div class="field-label">
+                        {{ form.objetivo_principal.label_tag }}
+                    </div>
+                    {{ form.objetivo_principal|add_class:"form-control"|attr:"placeholder:¿Qué problema específico resolverá este proyecto?"|attr:"required:required" }}
+                    {% if form.objetivo_principal.errors %}
+                        <div class="text-danger small mt-1">{{ form.objetivo_principal.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Usuarios y Necesidades -->
+                <h5 class="section-title mb-4">Usuarios</h5>
+                <div id="usuarios-container">
+                    <div class="user-section">
+                        <div class="form-group">
+                            <div class="field-label">
+                                {{ form.usuarios_finales.label_tag }}
+                                <span class="help-icon" data-bs-toggle="tooltip" data-bs-placement="right" 
+                                      title="Define los tipos de usuarios que interactuarán con el sistema">ⓘ</span>
                             </div>
-                        {% endfor %}
-                    <div class="mt-3">
-                        <button type="submit" class="btn btn-outline-success btn-sm">✅Guardar Proyecto </button>
+                            <div class="input-group">
+                                <input type="text" class="form-control usuario-input" 
+                                       placeholder="Ejemplo: Administrador, Cliente, Vendedor...">
+                                <button type="button" class="btn btn-primary add-usuario-btn">Agregar Usuario</button>
+                            </div>
+                        </div>
 
-                        <a href="{% url 'dashboard' %}" class="btn btn-outline-danger btn-sm">❌cancelar </a>
-                            
+                        <div id="usuarios-list" class="mt-3">
+                            <!-- Los usuarios se agregarán aquí dinámicamente -->
+                        </div>
                     </div>
-            </form>
-        </div>      
+                </div>
 
+
+
+                <!-- Hidden fields para almacenar datos -->
+                <input type="hidden" name="usuarios_finales" id="usuarios_finales_hidden">
+                <input type="hidden" name="necesidades_usuarios" id="necesidades_usuarios_hidden">
+                <input type="hidden" name="procesos_principales" id="procesos_principales_hidden">
+
+                <!-- Botón para crear proyecto -->
+                <div class="mt-4 text-center">
+                    <button type="submit" class="btn btn-success" id="submitBtn">Crear Proyecto</button>
+                    <a href="{% url 'dashboard' %}" class="btn btn-outline-danger btn-sm">Cancelar</a>
+                </div>
+            </form>
+        </div>
     </div>
-</div>                    
+</div>
 {% endblock %}
 
+{% block extra_js %}
+<script src="{% static 'js/crear_proyecto.js' %}"></script>
+{% endblock %}
