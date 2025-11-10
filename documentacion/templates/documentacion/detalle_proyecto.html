@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% block title %}{{ proyecto.nombre }} | Detalle del Proyecto{% endblock %}
 {% block content %}
-<div class="container">
+<div class="container-fluid py-4">
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
         <div>
-            <h2 class="text-primary">{{ proyecto.nombre }}</h2>
+            <h2 class="text-primary fw-bold">{{ proyecto.nombre }}</h2>
             <p class="text-muted">{{ proyecto.descripcion }}</p>
         </div>
 
@@ -15,64 +15,192 @@
             </a>
         </div>
     </div>
+
     {% if fases %}
-    {% if not caso_uso_con_requisitos %}
-    <div class="alert alert-warning text-dark text-center shadow-sm mb-4 border border-warning">
-        ⚠️ Primero debes generar el <strong>Caso de uso</strong> para continuar con el flujo de trabajo.
-    </div>
-    {% elif not requisitos_generados %}
-    <div class="alert alert-info text-dark text-center shadow-sm mb-4 border border-info">
-        📝 Ahora puedes generar los <strong>Requisitos</strong> basados en el Caso de uso.
-    </div>
-    {% endif %}
-
-    
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-
-       
-        {% for fase in fases %}
-        <div class="col">
-            <div class="card h-100 shadow-lg border-info">
-                
-                <div class="card-header bg-info text-white text-center">
-                    <h5 class="card-title m-0">{{ fase.nombre }}</h5>
-                </div>
-
-                <div class="card-body">
-                    {% if fase.subartefactos.all %}
-                        {% for sub in fase.subartefactos_ordenados %}
-                        <div class="d-grid gap-2 mb-2">
-                            {% if sub.nombre == "Caso de uso" %}
-                                <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" class="btn btn-outline-info btn-sm">
-                                    {{ sub.nombre }}
-                                </a>
-                            {% elif sub.nombre == "Requisitos" and caso_uso_con_requisitos %}
-                                <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" class="btn btn-outline-info btn-sm">
-                                    {{ sub.nombre }}
-                                </a>
-                            {% elif sub.nombre != "Caso de uso" and sub.nombre != "Requisitos" and caso_uso_con_requisitos and requisitos_generados %}
-                                <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" class="btn btn-outline-info btn-sm">
-                                    {{ sub.nombre }}
-                                </a>
-                            {% else %}
-                                <button class="btn btn-outline-secondary btn-sm" disabled 
-                                    title="{% if not caso_uso_con_requisitos %}Primero genera el Caso de uso
-                                    {% elif not requisitos_generados and sub.nombre != 'Requisitos' %}Primero genera los Requisitos
-                                    {% endif %}">
-                                    🚫 {{ sub.nombre }}
-                                </button>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-muted text-center">No hay subartefactos definidos.</p>
-                    {% endif %}
-                </div>
-
-            </div>
+        {% if not caso_uso_con_requisitos %}
+        <div class="alert alert-warning text-dark text-center shadow-sm mb-4 border border-warning">
+            ⚠️ Primero debes generar la <strong>Historia de Usuario</strong> para continuar con el flujo de trabajo.
         </div>
-        {% endfor %}
-    </div>
+        {% elif not requisitos_generados %}
+        <div class="alert alert-info text-dark text-center shadow-sm mb-4 border border-info">
+            📝 Ahora puedes generar los <strong>Requisitos</strong> basados en la Historia de Usuario.
+        </div>
+        {% endif %}
+
+        <!-- FILA ÚNICA: Los 4 pasos alineados en la misma altura -->
+        <div class="row g-2 align-items-stretch">
+            
+            <!-- Paso 1: Análisis -->
+            <div class="col-lg-2-4 col-md-6" style="flex: 0 0 calc(23% - 6px);">
+                <div class="card h-100 shadow-sm" style="border: 3px solid #0d6efd; border-radius: 15px; overflow: hidden;">
+                    <div class="card-header" style="background-color: #0d6efd; border-bottom: none; padding: 8px;">
+                        <div class="text-center">
+                            <span class="badge" style="background-color: rgba(255,255,255,0.3); font-size: 0.65rem; color: white;">Paso 1</span>
+                            <h6 class="card-title mt-1 mb-0 fw-bold text-white" style="font-size: 0.9rem;">Análisis</h6>
+                        </div>
+                    </div>
+                    <div class="card-body" style="padding: 10px;">
+                        {% with fase=fases|first %}
+                        {% if fase.subartefactos.all %}
+                            <div class="list-group list-group-flush">
+                                {% for sub in fase.subartefactos_ordenados %}
+                                <div class="list-group-item px-0 py-2 border-0 border-bottom">
+                                    {% if sub.nombre == "Historia de Usuario" %}
+                                        <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
+                                           class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                           title="{{ sub.nombre }}"
+                                           style="border-radius: 10px; font-size: 0.7rem;">
+                                            {{ sub.nombre }}
+                                        </a>
+                                    {% elif sub.nombre == "Requisitos" and caso_uso_con_requisitos %}
+                                        <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
+                                           class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                           title="{{ sub.nombre }}"
+                                           style="border-radius: 10px; font-size: 0.7rem;">
+                                            {{ sub.nombre }}
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
+                                            style="border-radius: 10px; font-size: 0.7rem;">
+                                            🚫 {{ sub.nombre }}
+                                        </button>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flecha 1 - Decorativa -->
+            <div class="col-lg-auto col-md-0 d-none d-lg-flex justify-content-center align-items-center" style="font-size: 22px; color: #2d3748; min-width: 25px;">
+                ▶
+            </div>
+
+            <!-- Paso 2: Diseño -->
+            <div class="col-lg-2-4 col-md-6" style="flex: 0 0 calc(23% - 6px);">
+                <div class="card h-100 shadow-sm" style="border: 3px solid #198754; border-radius: 15px; overflow: hidden;">
+                    <div class="card-header" style="background-color: #198754; border-bottom: none; padding: 8px;">
+                        <div class="text-center">
+                            <span class="badge" style="background-color: rgba(255,255,255,0.3); font-size: 0.65rem; color: white;">Paso 2</span>
+                            <h6 class="card-title mt-1 mb-0 fw-bold text-white" style="font-size: 0.9rem;">Diseño</h6>
+                        </div>
+                    </div>
+                    <div class="card-body" style="padding: 10px;">
+                        {% with fase=fases|slice:"1:2"|first %}
+                        {% if fase.subartefactos.all %}
+                            <div class="list-group list-group-flush">
+                                {% for sub in fase.subartefactos_ordenados %}
+                                <div class="list-group-item px-0 py-2 border-0 border-bottom">
+                                    {% if caso_uso_con_requisitos and requisitos_generados %}
+                                        <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
+                                           class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                           title="{{ sub.nombre }}"
+                                           style="border-radius: 10px; font-size: 0.7rem;">
+                                            {{ sub.nombre }}
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
+                                            style="border-radius: 10px; font-size: 0.7rem;">
+                                            🚫 {{ sub.nombre }}
+                                        </button>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flecha 2 - Decorativa -->
+            <div class="col-lg-auto col-md-0 d-none d-lg-flex justify-content-center align-items-center" style="font-size: 22px; color: #2d3748; min-width: 25px;">
+                ▶
+            </div>
+
+            <!-- Paso 3: Pruebas -->
+            <div class="col-lg-2-4 col-md-6" style="flex: 0 0 calc(23% - 6px);">
+                <div class="card h-100 shadow-sm" style="border: 3px solid #fd7e14; border-radius: 15px; overflow: hidden;">
+                    <div class="card-header" style="background-color: #fd7e14; border-bottom: none; padding: 8px;">
+                        <div class="text-center">
+                            <span class="badge" style="background-color: rgba(255,255,255,0.3); font-size: 0.65rem; color: white;">Paso 3</span>
+                            <h6 class="card-title mt-1 mb-0 fw-bold text-white" style="font-size: 0.9rem;">Pruebas</h6>
+                        </div>
+                    </div>
+                    <div class="card-body" style="padding: 10px;">
+                        {% with fase=fases|slice:"2:3"|first %}
+                        {% if fase.subartefactos.all %}
+                            <div class="list-group list-group-flush">
+                                {% for sub in fase.subartefactos_ordenados %}
+                                <div class="list-group-item px-0 py-2 border-0 border-bottom">
+                                    {% if caso_uso_con_requisitos and requisitos_generados %}
+                                        <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
+                                           class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                           title="{{ sub.nombre }}"
+                                           style="border-radius: 10px; font-size: 0.7rem;">
+                                            {{ sub.nombre }}
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
+                                            style="border-radius: 10px; font-size: 0.7rem;">
+                                            🚫 {{ sub.nombre }}
+                                        </button>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flecha 3 - Decorativa -->
+            <div class="col-lg-auto col-md-0 d-none d-lg-flex justify-content-center align-items-center" style="font-size: 22px; color: #2d3748; min-width: 25px;">
+                ▶
+            </div>
+
+            <!-- Paso 4: Despliegue -->
+            <div class="col-lg-2-4 col-md-6" style="flex: 0 0 calc(23% - 6px);">
+                <div class="card h-100 shadow-sm" style="border: 3px solid #6f42c1; border-radius: 15px; overflow: hidden;">
+                    <div class="card-header" style="background-color: #6f42c1; border-bottom: none; padding: 8px;">
+                        <div class="text-center">
+                            <span class="badge" style="background-color: rgba(255,255,255,0.3); font-size: 0.65rem; color: white;">Paso 4</span>
+                            <h6 class="card-title mt-1 mb-0 fw-bold text-white" style="font-size: 0.9rem;">Despliegue</h6>
+                        </div>
+                    </div>
+                    <div class="card-body" style="padding: 10px;">
+                        {% with fase=fases|slice:"3:4"|first %}
+                        {% if fase.subartefactos.all %}
+                            <div class="list-group list-group-flush">
+                                {% for sub in fase.subartefactos_ordenados %}
+                                <div class="list-group-item px-0 py-2 border-0 border-bottom">
+                                    {% if caso_uso_con_requisitos and requisitos_generados %}
+                                        <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
+                                           class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                           title="{{ sub.nombre }}"
+                                           style="border-radius: 10px; font-size: 0.7rem;">
+                                            {{ sub.nombre }}
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
+                                            style="border-radius: 10px; font-size: 0.7rem;">
+                                            🚫 {{ sub.nombre }}
+                                        </button>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+
+        </div>
 
     {% else %}
     <div class="alert alert-info mt-4">
@@ -81,18 +209,26 @@
     {% endif %}
 </div>
 
-<div class="modal fade" id="modalSubartefacto" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content border-primary shadow">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">Detalle del Subartefacto</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body">
-                <p>Aquí se podría cargar contenido dinámico del subartefacto seleccionado.</p>
-            </div>
-        </div>
-    </div>
-</div>
+<style>
+    .card {
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12) !important;
+        transform: translateY(-2px);
+    }
+
+    .btn {
+        font-size: 0.85rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .list-group-item:last-child {
+        border-bottom: none !important;
+    }
+</style>
 
 {% endblock %}

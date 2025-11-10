@@ -1,9 +1,11 @@
 import re
 from django import forms
-from .models import Project, Artefacto
-from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
+from .models import Project, Artefacto, SecurityQuestions
+
+
 
 ARTEFACTOS_MERMAID = [
     "Diagrama de flujo",
@@ -65,7 +67,7 @@ def texto_coherente(texto: str) -> bool:
 # ===== creacion y editar proyecto ============
 class ProjectForm(forms.ModelForm):
     """
-    Formulario mejorado para crear o editar un proyecto con información detallada.
+    Formulario para crear o editar un proyecto.
     """
     nombre = forms.CharField(
         label='Nombre del Proyecto',
@@ -77,28 +79,17 @@ class ProjectForm(forms.ModelForm):
     )
 
     descripcion = forms.CharField(
-        label='Descripción General',
+        label='Descripción',
         widget=forms.Textarea(attrs={
             'class': 'form-control',
-            'rows': 3,
-            'placeholder': 'Describa brevemente el propósito general del proyecto'
+            'rows': 4,
+            'placeholder': 'Ingrese una breve descripción del proyecto'
         })
     )
-
-    objetivo_principal = forms.CharField(
-        label='Objetivo Principal',
-        widget=forms.Textarea(attrs={
-            'class': 'form-control',
-            'rows': 2,
-            'placeholder': 'Defina el objetivo principal que se busca alcanzar con este proyecto'
-        })
-    )
-
-
 
     class Meta:
         model = Project
-        fields = ['nombre', 'descripcion', 'objetivo_principal']
+        fields = ['nombre', 'descripcion']
 
 # ===== validadcion proyecto ============
     def clean_nombre(self):
@@ -161,17 +152,12 @@ class ArtefactoForm(forms.ModelForm):
         titulo = self.cleaned_data['titulo'].strip()
         if not re.match(r'^[A-Za-z0-9ÁÉÍÓÚáéíóúñÑ\s.,()-]{3,100}$', titulo):
             raise ValidationError("El título contiene caracteres no válidos.")
-        if texto_no_coherente(titulo):
-            raise ValidationError("El título no es coherente o tiene patrones repetitivos.")
         return titulo
 
     def clean_contenido(self):
         contenido = self.cleaned_data['contenido'].strip()
         if len(contenido) < 10:
             raise ValidationError("El contenido es demasiado corto.")
-        titulo = self.cleaned_data.get('titulo', '')
-        if titulo not in ARTEFACTOS_MERMAID and texto_no_coherente(contenido):
-            raise ValidationError("El contenido no parece tener sentido o está mal estructurado.")
         return contenido
 
     def clean_tipo(self):
@@ -180,12 +166,12 @@ class ArtefactoForm(forms.ModelForm):
         """
         titulo = self.cleaned_data.get('titulo', '').lower()
 
-        if titulo in ("historia de usuario", "requisitos"):
+        if titulo == "historia de usuario":
             return 'AREQ'
-        elif titulo == "diagrama de flujo":
-            return 'DEVS'
         elif titulo in ("caja negra", "smoke"):
             return 'PRUE'
+        elif titulo == "diagrama de flujo":
+            return 'AREQ'
         elif titulo in ("diagrama de clases", "diagrama de entidad-relacion"):
             return 'DISE'
         elif titulo in ("diagrama de secuencia", "diagrama de estado"):
@@ -203,12 +189,12 @@ class ArtefactoForm(forms.ModelForm):
             self.fields['tipo'].disabled = True  
 
             titulo = self.instance.titulo.lower()
-            if titulo in ("historia de usuario", "requisitos"):
+            if titulo == "historia de usuario":
                 self.initial['tipo'] = 'AREQ'
-            elif titulo == "diagrama de flujo":
-                self.initial['tipo'] = 'DEVS'
             elif titulo in ("caja negra", "smoke"):
                 self.initial['tipo'] = 'PRUE'
+            elif titulo == "diagrama de flujo":
+                self.initial['tipo'] = 'AREQ'
             elif titulo in ("diagrama de clases", "diagrama de entidad-relacion"):
                 self.initial['tipo'] = 'DISE'
             elif titulo in ("diagrama de secuencia", "diagrama de estado"):
@@ -219,7 +205,7 @@ class ArtefactoForm(forms.ModelForm):
 # ===== registarse  y loguearse  ============
 class CustomUserCreationForm(UserCreationForm):
     """
-    Formulario personalizado de registro de usuario.
+    Formulario personalizado de registro de usuario simplificado.
     """
     username = forms.CharField(
         label='Nombre de usuario',
@@ -233,7 +219,8 @@ class CustomUserCreationForm(UserCreationForm):
         label='Contraseña',
         widget=forms.PasswordInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Ingrese su contraseña'
+            'placeholder': 'Ingrese su contraseña',
+            'autocomplete': 'new-password'
         })
     )
 
@@ -241,7 +228,8 @@ class CustomUserCreationForm(UserCreationForm):
         label='Confirmar contraseña',
         widget=forms.PasswordInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Confirme su contraseña'
+            'placeholder': 'Confirme su contraseña',
+            'autocomplete': 'new-password'
         })
     )
 
@@ -249,46 +237,152 @@ class CustomUserCreationForm(UserCreationForm):
         model = User
         fields = ['username', 'password1', 'password2']
 
-    # ===== validadcion registro ============
     def clean_username(self):
-        username = self.cleaned_data['username']
-        if not re.match(r'^[a-zA-Z0-9_]{3,20}$', username):
-            raise ValidationError("Debe contener solo letras, números o guion bajo, entre 3 y 20 caracteres.")
-        if texto_no_coherente(username):
-            raise ValidationError("El usuario no es coherente o tiene patrones repetitivos.")
+        username = self.cleaned_data.get('username')
+        if User.objects.filter(username__iexact=username).exists():
+            raise ValidationError('Este nombre de usuario ya existe.')
         return username
-
-
-    def clean_email(self):
-        email = self.cleaned_data['email'].strip().lower()
-
-        # Verificar formato general válido
-        if not re.match(r'^[\w\.-]+@[a-zA-Z]+\.[a-z]{2,}(?:\.[a-z]{2,})?$', email):
-            raise ValidationError("Formato de correo inválido.")
-
-        dominio = email.split('@')[1]
-        nombre_dominio = dominio.split('.')[0]
-
-        if re.fullmatch(r'(.)\1{2,}', nombre_dominio):
-            raise ValidationError("El dominio no parece real. Usa uno válido como gmail.com o outlook.com.")
-
-        if len(nombre_dominio) < 4 or not any(letra in nombre_dominio for letra in 'aeiou'):
-            raise ValidationError("El dominio debe ser coherente y reconocible.")
-
-        return email
 
     def clean_password1(self):
         password = self.cleaned_data.get('password1')
-        pattern = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$'
-        if not password or not re.match(pattern, password):
-            raise ValidationError("La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.")
+        if not password:
+            raise ValidationError('Este campo es requerido.')
+            
+        if len(password) < 8:
+            raise ValidationError('La contraseña debe tener al menos 8 caracteres.')
+            
+        if not re.search(r'[A-Z]', password):
+            raise ValidationError('La contraseña debe contener al menos una letra mayúscula.')
+            
+        if not re.search(r'[a-z]', password):
+            raise ValidationError('La contraseña debe contener al menos una letra minúscula.')
+            
+        if not re.search(r'\d', password):
+            raise ValidationError('La contraseña debe contener al menos un número.')
+            
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+            raise ValidationError('La contraseña debe contener al menos un símbolo especial.')
+            
         return password
 
     def clean_password2(self):
         password1 = self.cleaned_data.get('password1')
         password2 = self.cleaned_data.get('password2')
+        
         if not password1 or not password2:
-            raise ValidationError("Ambas contraseñas son requeridas.")
+            raise ValidationError('Ambas contraseñas son requeridas.')
+            
         if password1 != password2:
-            raise ValidationError("Las contraseñas no coinciden.")
+            raise ValidationError('Las contraseñas no coinciden.')
+            
+        return password2
+
+class SecurityQuestionsForm(forms.ModelForm):
+    """Formulario para configurar preguntas de seguridad"""
+    class Meta:
+        model = SecurityQuestions
+        fields = ['pregunta1', 'respuesta1', 'pregunta2', 'respuesta2', 'pregunta3', 'respuesta3']
+        widgets = {
+            'pregunta1': forms.Select(attrs={'class': 'form-select'}),
+            'respuesta1': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Tu respuesta'}),
+            'pregunta2': forms.Select(attrs={'class': 'form-select'}),
+            'respuesta2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Tu respuesta'}),
+            'pregunta3': forms.Select(attrs={'class': 'form-select'}),
+            'respuesta3': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Tu respuesta'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        preguntas = [cleaned_data.get('pregunta1'), 
+                    cleaned_data.get('pregunta2'),
+                    cleaned_data.get('pregunta3')]
+        
+        if len(set(preguntas)) != 3:
+            raise forms.ValidationError('Debes seleccionar tres preguntas diferentes')
+        
+        return cleaned_data
+
+class PasswordResetRequestForm(forms.Form):
+    """Formulario para solicitar restablecimiento de contraseña"""
+    username = forms.CharField(
+        label='Nombre de usuario',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ingrese su nombre de usuario'
+        })
+    )
+
+class SecurityAnswersForm(forms.Form):
+    """Formulario para validar respuestas de seguridad"""
+    respuesta1 = forms.CharField(
+        label='Respuesta 1',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ingrese su respuesta'
+        })
+    )
+    respuesta2 = forms.CharField(
+        label='Respuesta 2',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ingrese su respuesta'
+        })
+    )
+    respuesta3 = forms.CharField(
+        label='Respuesta 3',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ingrese su respuesta'
+        })
+    )
+
+class NewPasswordForm(forms.Form):
+    """Formulario para nueva contraseña"""
+    password1 = forms.CharField(
+        label='Nueva contraseña',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ingrese su nueva contraseña'
+        })
+    )
+    password2 = forms.CharField(
+        label='Confirmar contraseña',
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Confirme su nueva contraseña'
+        })
+    )
+
+    def clean_password1(self):
+        password = self.cleaned_data.get('password1')
+        if not password:
+            raise ValidationError('Este campo es requerido.')
+            
+        if len(password) < 8:
+            raise ValidationError('La contraseña debe tener al menos 8 caracteres.')
+            
+        if not re.search(r'[A-Z]', password):
+            raise ValidationError('La contraseña debe contener al menos una letra mayúscula.')
+            
+        if not re.search(r'[a-z]', password):
+            raise ValidationError('La contraseña debe contener al menos una letra minúscula.')
+            
+        if not re.search(r'\d', password):
+            raise ValidationError('La contraseña debe contener al menos un número.')
+            
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+            raise ValidationError('La contraseña debe contener al menos un símbolo especial.')
+            
+        return password
+
+    def clean_password2(self):
+        password1 = self.cleaned_data.get('password1')
+        password2 = self.cleaned_data.get('password2')
+        
+        if not password1 or not password2:
+            raise ValidationError('Ambas contraseñas son requeridas.')
+            
+        if password1 != password2:
+            raise ValidationError('Las contraseñas no coinciden.')
+            
         return password2

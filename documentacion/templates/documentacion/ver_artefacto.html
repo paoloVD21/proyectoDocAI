@@ -92,8 +92,8 @@
         <div class="card-body">
             <h5 class="card-header bg-info text-white mb-3">Historias de Usuario y sus Requisitos</h5>
             <div class="p-4 bg-light rounded shadow-sm">
-                {% if historia_usuario %}
-                    {% for historia in historia_usuario.contenido|parse_historias %}
+                {% if hu %}
+                    {% for historia in hu.contenido|parse_historias %}
                     <div class="card mb-4 border-primary">
                         <div class="card-header bg-primary text-white">
                             <h6 class="mb-0">Historia de Usuario #{{ forloop.counter }}</h6>

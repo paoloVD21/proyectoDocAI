@@ -1,23 +1,32 @@
 .historia-item {
     cursor: grab;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
+    border-radius: 8px;
 }
 
 .historia-item:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.historia-item.drag-over {
-    border: 2px dashed #007bff;
-    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .historia-item.dragging {
     opacity: 0.5;
     cursor: grabbing;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.drop-line-indicator {
+    position: absolute;
+    height: 3px;
+    background: linear-gradient(90deg, #007bff, transparent);
+    border-radius: 2px;
+    display: none;
+    z-index: 1000;
+    left: 0;
+    box-shadow: 0 0 8px rgba(0, 123, 255, 0.5);
 }
 
 #historias-lista {
     min-height: 100px;
+    position: relative;
 }
