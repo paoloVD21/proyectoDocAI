@@ -12,7 +12,7 @@ if not api_key:
 genai.configure(api_key=api_key) # pyright: ignore[reportPrivateImportUsage]
 
 # Modelo de IA a utilizar
-MODEL = "models/gemini-2.0-flash"
+MODEL = "models/gemini-2.5-flash"
 
 # ===== PROMPTS PERSONALIZADOS =====
 
