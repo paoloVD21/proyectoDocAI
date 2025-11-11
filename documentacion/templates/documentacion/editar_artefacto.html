@@ -23,13 +23,8 @@
                         <div class="text-danger small">{{ form.titulo.errors }}</div>
                     {% endif %}
                 </div>
-                <div class="mb-3">
-                    <label for="{{ form.tipo.id_for_label }}" class="form-label">Tipo de artefacto</label>
-                    {{ form.tipo|add_class:"form-control" }}
-                    {% if form.tipo.errors %}
-                        <div class="text-danger small">{{ form.tipo.errors }}</div>
-                    {% endif %}
-                </div>
+                <!-- Campo tipo ocultado (no necesario mostrar) -->
+                <input type="hidden" name="tipo" value="{{ artefacto.tipo }}">
                 <div class="mb-3">
                     <label for="{{ form.contenido.id_for_label }}" class="form-label">Contenido</label>
                     {{ form.contenido|add_class:"form-control" }}
@@ -39,8 +34,14 @@
                 </div>
                 <div class="d-flex justify-content-between">
                     <button type="submit" class="btn btn-outline-success btn-sm">💾 Guardar Cambios</button>
-                    <button type="submit" name="regenerar" value="1" class="btn btn-outline-warning btn-sm">♻️ Regenerar con IA</button>
-                    <a href="{% url 'ver_artefacto' artefacto.id %}" class="btn btn-outline-danger btn-sm">❌ Cancelar</a>
+                    {% if 'Historia de Usuario' in artefacto.titulo or 'Requisitos' in artefacto.titulo %}
+                        <button type="submit" name="regenerar" value="1" class="btn btn-outline-warning btn-sm">♻️ Regenerar con IA</button>
+                    {% endif %}
+                    {% if 'Diagrama de flujo' in artefacto.titulo %}
+                        <a href="{% url 'ver_diagramas_flujo' artefacto.proyecto.id %}" class="btn btn-outline-danger btn-sm">❌ Cancelar</a>
+                    {% else %}
+                        <a href="{% url 'ver_artefacto' artefacto.id %}" class="btn btn-outline-danger btn-sm">❌ Cancelar</a>
+                    {% endif %}
                 </div>
             </form>
         </div>

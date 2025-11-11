@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Diagramas de Flujo | {{ proyecto.nombre }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/artefactos.css' %}">
+<style>
+    .diagrama-card {
+        border-left: 4px solid #0d6efd;
+        transition: all 0.3s ease;
+    }
+    .diagrama-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .diagrama-header {
+        background: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%);
+        color: white;
+    }
+    .mermaid-container-small {
+        max-height: 600px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 15px;
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="text-primary mb-0">📊 Diagramas de Flujo</h2>
+            <p class="text-muted mt-2">Proyecto: <strong>{{ proyecto.nombre }}</strong></p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'detalle_proyecto' proyecto.id %}" class="btn btn-outline-success">← Regresar</a>
+            <a href="{% url 'regenerar_diagramas_flujo' proyecto.id %}" class="btn btn-outline-warning">🔄 Regenerar Todos</a>
+            <a href="{% url 'eliminar_todos_diagramas_flujo' proyecto.id %}" class="btn btn-outline-danger" onclick="return confirm('⚠️ ¿Está seguro? Se eliminarán TODOS los diagramas de flujo.\n\nEsta acción NO se puede deshacer.')">🗑️ Eliminar Todos</a>
+        </div>
+    </div>
+
+    <!-- Información de conteo -->
+    <div class="alert alert-info mb-4" role="alert">
+        <i class="bi bi-info-circle"></i>
+        Se han generado <strong>{{ cantidad_diagramas }}</strong> diagrama(s) de flujo, uno por cada Historia de Usuario.
+    </div>
+
+    <!-- Tabbed Interface -->
+    {% if diagramas %}
+    <div class="row">
+        {% for diagrama in diagramas %}
+        <div class="col-12 mb-4">
+            <div class="card diagrama-card h-100">
+                <!-- Header del diagrama -->
+                <div class="diagrama-header p-3">
+                    <h5 class="mb-0">
+                        {{ diagrama.titulo }}
+                        <span class="badge bg-light text-dark">{{ diagrama.historia_usuario_relacionada }}</span>
+                    </h5>
+                </div>
+
+                <!-- Cuerpo del diagrama -->
+                <div class="card-body">
+                    <!-- Mermaid Diagram -->
+                    <div class="mermaid-container-small mb-3">
+                        <div class="mermaid" data-diagrama-id="{{ diagrama.id }}">
+                            {{ diagrama.contenido|safe }}
+                        </div>
+                    </div>
+
+                    <!-- Requisitos Relacionados -->
+                    {% if diagrama.requisitos_relacionados %}
+                    <div class="mb-3">
+                        <h6 class="text-primary mb-2">📋 Requisitos Funcionales:</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for rf in diagrama.requisitos_relacionados %}
+                            <span class="badge bg-info text-dark">{{ rf }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Metadatos -->
+                    <div class="text-muted small mt-3 pt-3 border-top">
+                        <p class="mb-1">📅 Creado: {{ diagrama.creado|date:"d/m/Y H:i" }}</p>
+                        <p class="mb-0">✏️ Actualizado: {{ diagrama.actualizado|date:"d/m/Y H:i" }}</p>
+                    </div>
+                </div>
+
+                <!-- Acciones -->
+                <div class="card-footer bg-white">
+                    <div class="btn-group w-100" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-descargar" data-diagrama-id="{{ diagrama.id }}" data-formato="svg">⬇️ SVG</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-descargar" data-diagrama-id="{{ diagrama.id }}" data-formato="jpg">⬇️ JPG</button>
+                        <a href="{% url 'descargar_diagrama' diagrama.id %}" class="btn btn-sm btn-outline-primary">⬇️ MMD</a>
+                        <a href="{% url 'regenerar_diagrama_individual' diagrama.id %}" class="btn btn-sm btn-outline-info">🔄 Regenerar con IA</a>
+                        <a href="{% url 'editar_artefacto' diagrama.id %}" class="btn btn-sm btn-outline-warning">✏️ Editar</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Vista acoplada: Resumen de todos los diagramas -->
+    <div class="card mt-5 border-info">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">📖 Resumen de Diagramas</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Diagrama</th>
+                            <th>Historia de Usuario</th>
+                            <th>Requisitos Funcionales</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for diagrama in diagramas %}
+                        <tr class="tr-diagrama" data-diagrama-id="{{ diagrama.id }}" style="cursor: pointer;">
+                            <td>
+                                <strong>{{ diagrama.titulo }}</strong>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">{{ diagrama.historia_usuario_relacionada }}</span>
+                            </td>
+                            <td>
+                                {% if diagrama.requisitos_relacionados %}
+                                    {% for rf in diagrama.requisitos_relacionados %}
+                                    <span class="badge bg-secondary">{{ rf }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted">Sin requisitos</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-success">Generado</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i>
+        No se encontraron diagramas de flujo.
+    </div>
+    {% endif %}
+</div>
+
+{% block extra_js %}
+<script>
+    // Variable para evitar duplicación de listeners
+    if (!window.diagramasListenersAdded) {
+        window.diagramasListenersAdded = true;
+        
+        // Manejadores de descargas
+        document.querySelectorAll('.btn-descargar').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const diagramaId = this.dataset.diagramaId;
+                const formato = this.dataset.formato;
+                descargarDiagrama(parseInt(diagramaId), formato);
+            }, { once: true }); // Se ejecuta solo una vez
+        });
+
+        // Manejadores de tabla para scroll
+        document.querySelectorAll('.tr-diagrama').forEach(row => {
+            row.addEventListener('click', function() {
+                const diagramaId = this.dataset.diagramaId;
+                const elemento = document.querySelector(`[data-diagrama-id="${diagramaId}"]`);
+                if (elemento && elemento.classList.contains('mermaid-container-small')) {
+                    elemento.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+        });
+    }
+
+    function descargarDiagrama(diagramaId, formato) {
+        // Buscar el contenedor del diagrama
+        const card = document.querySelector(`.card:has([data-diagrama-id="${diagramaId}"])`);
+        if (!card) {
+            alert('No se encontró el diagrama');
+            return;
+        }
+        
+        const mermaidDiv = card.querySelector(`[data-diagrama-id="${diagramaId}"]`);
+        const titulo = card.querySelector('.diagrama-header h5').textContent.trim();
+        
+        if (formato === 'svg') {
+            // Descargar como SVG
+            const svg = mermaidDiv.querySelector('svg');
+            if (svg) {
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const blob = new Blob([svgData], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${titulo.replace(/\s+/g, '_')}.svg`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }
+        } else if (formato === 'jpg') {
+            // Descargar como JPG - Código probado que funciona bien
+            try {
+                const svg = mermaidDiv.querySelector('svg');
+                if (!svg) {
+                    alert('❌ No se encontró el SVG renderizado.');
+                    return;
+                }
+
+                let svgString = new XMLSerializer().serializeToString(svg);
+
+                if (!svgString.includes('xmlns="http://www.w3.org/2000/svg"')) {
+                    svgString = svgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+                }
+
+                const svgBase64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width * 3;
+                    canvas.height = img.height * 3;
+                    const ctx = canvas.getContext('2d');
+
+                    // Fondo blanco para JPG
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    // Exportar como JPG
+                    canvas.toBlob((blob) => {
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = `${titulo.replace(/\s+/g, '_')}.jpg`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(a.href);
+                    }, 'image/jpeg', 0.95);
+                };
+
+                img.onerror = function() {
+                    alert('❌ Error al cargar el SVG como imagen.');
+                };
+
+                img.src = svgBase64;
+
+            } catch (error) {
+                alert('❌ Error inesperado al exportar a JPG.');
+                console.error(error);
+            }
+        }
+    }
+
+    // Auto-renderizar diagramas Mermaid
+    if (typeof mermaid !== 'undefined') {
+        mermaid.contentLoaded();
+    }
+</script>
+<script type="module" src="{% static 'js/diagramas.js' %}"></script>
+{% endblock %}
+{% endblock %}

@@ -3,6 +3,18 @@
 {% block content %}
 <div class="container-fluid py-4">
 
+    <!-- Notificaciones Flotantes (Sticky) -->
+    {% if messages %}
+    <div style="position: fixed; bottom: 20px; right: 20px; width: 350px; z-index: 1000; max-height: 60vh; overflow-y: auto;">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="border-radius: 10px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="d-flex justify-content-between align-items-center mb-5">
         <div>
             <h2 class="text-primary fw-bold">{{ proyecto.nombre }}</h2>
@@ -15,15 +27,6 @@
             </a>
         </div>
     </div>
-
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="border-radius: 10px;">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
 
     {% if fases %}
         {% if not caso_uso_con_requisitos %}
@@ -105,12 +108,22 @@
                                 <div class="list-group-item px-0 py-2 border-0 border-bottom">
                                     {% if sub.nombre == "Diagrama de flujo" %}
                                         {% if caso_uso_con_requisitos and requisitos_generados and requisitos_existe %}
-                                            <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
-                                               class="btn btn-sm btn-outline-primary w-100 text-truncate"
-                                               title="Desbloquear después de completar Análisis"
-                                               style="border-radius: 10px; font-size: 0.7rem;">
-                                                {{ sub.nombre }}
-                                            </a>
+                                            <!-- Si ya existen diagramas de flujo, ir directamente a verlos; si no, generar -->
+                                            {% if diagrama_flujo_generado %}
+                                                <a href="{% url 'ver_diagramas_flujo' proyecto.id %}" 
+                                                   class="btn btn-sm btn-outline-success w-100 text-truncate"
+                                                   title="Ver Diagramas de Flujo generados"
+                                                   style="border-radius: 10px; font-size: 0.7rem;">
+                                                    👁️ {{ sub.nombre }}
+                                                </a>
+                                            {% else %}
+                                                <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
+                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                                   title="Generar Diagrama de Flujo"
+                                                   style="border-radius: 10px; font-size: 0.7rem;">
+                                                    {{ sub.nombre }}
+                                                </a>
+                                            {% endif %}
                                         {% else %}
                                             <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
                                                 title="Completa Análisis primero: HU + Requisitos"

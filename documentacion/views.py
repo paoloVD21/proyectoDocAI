@@ -13,6 +13,53 @@ from .forms import (ProjectForm, ArtefactoForm, CustomUserCreationForm, Security
                    PasswordResetRequestForm, SecurityAnswersForm, NewPasswordForm)
 from core.ia import generar_subartefacto_con_prompt, extraer_requisitos, _generar_contenido, PROMPTS
 import datetime
+import re
+
+# ===== FUNCIÓN AUXILIAR PARA EXTRAER RF =====
+
+def extraer_rf_del_contenido(contenido: str) -> list:
+    """
+    Extrae la lista de requisitos funcionales (RF) del contenido.
+    Busca patrones como: RF1, RF2, RF3, etc.
+    
+    Returns: Lista como ["RF1", "RF2", "RF3"]
+    """
+    if not contenido:
+        return []
+    
+    # Buscar patrones RF# al inicio de línea
+    patrones = re.findall(r'\bRF\d+\b', contenido)
+    
+    # Eliminar duplicados manteniendo orden
+    rf_list = []
+    for rf in patrones:
+        if rf not in rf_list:
+            rf_list.append(rf)
+    
+    return rf_list
+
+
+def extraer_historias_de_usuario(contenido: str) -> list:
+    """
+    Extrae las historias de usuario (HU) del contenido.
+    Busca patrones como: HU1, HU2, HU3, etc.
+    
+    Returns: Lista como ["HU1", "HU2", "HU3"]
+    """
+    if not contenido:
+        return []
+    
+    # Buscar patrones HU# 
+    patrones = re.findall(r'\bHU\d+\b', contenido)
+    
+    # Eliminar duplicados manteniendo orden
+    hu_list = []
+    for hu in patrones:
+        if hu not in hu_list:
+            hu_list.append(hu)
+    
+    return hu_list
+
 
 # ===== TIPOS DE ARTEFACTOS DEFINIDOS DIRECTAMENTE =====
 
@@ -347,6 +394,41 @@ def editar_artefacto(request, artefacto_id):
                         else:
                             raise ValueError("No se encontró Historia de Usuario para regenerar Requisitos")
                     
+                    # Especial para Diagrama de flujo: con contexto de requisitos
+                    elif artefacto.titulo.lower() == "diagrama de flujo":
+                        artefactos = Artefacto.objects.filter(proyecto=proyecto)
+                        hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
+                        
+                        if not hu:
+                            hu = artefactos.filter(titulo__icontains="Historia").first()
+                        
+                        if hu and hu.contenido and hu.contenido.strip() != "":
+                            requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
+                            
+                            if requisitos_art and requisitos_art.contenido:
+                                # Regenerar diagrama con HU y Requisitos
+                                contenido = generar_subartefacto_con_prompt(
+                                    tipo="Diagrama de flujo",
+                                    historia_usuario=hu.contenido,
+                                    requisitos=requisitos_art.contenido
+                                )
+                                # Actualizar lista de RF relacionados
+                                artefacto.requisitos_relacionados = extraer_rf_del_contenido(requisitos_art.contenido)
+                            else:
+                                # Si no hay requisitos, generar solo con HU
+                                contenido = generar_subartefacto_con_prompt(
+                                    tipo="Diagrama de flujo",
+                                    historia_usuario=hu.contenido,
+                                    requisitos="(Sin requisitos específicos)"
+                                )
+                                artefacto.requisitos_relacionados = []
+                            
+                            contenido = limpiar_mermaid(contenido)
+                            artefacto.contenido = contenido
+                            artefacto.generado_por_ia = True
+                        else:
+                            raise ValueError("No se encontró Historia de Usuario para regenerar Diagrama de Flujo")
+                    
                     else:
                         contenido = generar_subartefacto_con_prompt(
                             tipo=artefacto.titulo,
@@ -419,6 +501,249 @@ def ver_artefacto(request, artefacto_id):
         'is_mermaid': is_mermaid,
         'hu': hu,
     })
+
+
+@login_required
+def ver_diagramas_flujo(request, proyecto_id):
+    """
+    Vista que muestra TODOS los diagramas de flujo generados para un proyecto.
+    Se accede después de generar los diagramas la primera vez.
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    # Obtener todos los diagramas de flujo
+    diagramas = list(Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo__startswith="Diagrama de flujo"
+    ))
+    
+    if not diagramas:
+        messages.warning(request, "⚠️ No se han generado Diagramas de Flujo aún.")
+        return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    # Ordenar numéricamente por HU (HU1, HU2, ..., HU10, HU11, etc.)
+    def extraer_numero_hu(diagrama):
+        hu_str = diagrama.historia_usuario_relacionada or ""
+        try:
+            numero = int(hu_str.replace("HU", "").strip())
+            return numero
+        except (ValueError, AttributeError):
+            return float('inf')  # Si no es HU, lo pone al final
+    
+    diagramas.sort(key=extraer_numero_hu)
+    
+    return render(request, 'documentacion/ver_diagramas_flujo.html', {
+        'proyecto': proyecto,
+        'diagramas': diagramas,
+        'cantidad_diagramas': len(diagramas),
+    })
+
+
+@login_required
+def regenerar_diagramas_flujo(request, proyecto_id):
+    """
+    Vista para REGENERAR todos los diagramas de flujo de un proyecto.
+    Solo accesible desde la vista ver_diagramas_flujo.
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    try:
+        artefactos = Artefacto.objects.filter(proyecto=proyecto)
+        hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
+        
+        if not hu:
+            messages.error(request, "❌ No se encontró la Historia de Usuario")
+            return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
+        
+        if not requisitos_art or not requisitos_art.contenido:
+            messages.error(request, "❌ No se encontraron Requisitos para regenerar diagramas de flujo")
+            return redirect('ver_diagramas_flujo', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # Extraer todas las HU del contenido de Requisitos
+        hu_list = extraer_historias_de_usuario(requisitos_art.contenido)
+        
+        if not hu_list:
+            messages.error(request, "❌ No se encontraron Historias de Usuario en los Requisitos")
+            return redirect('ver_diagramas_flujo', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        diagramas_regenerados = 0
+        
+        # Regenerar cada diagrama
+        for hu_name in hu_list:
+            try:
+                diagrama_existente = Artefacto.objects.filter(
+                    proyecto=proyecto,
+                    titulo=f"Diagrama de flujo - {hu_name}"
+                ).first()
+                
+                if not diagrama_existente:
+                    continue
+                
+                # Buscar la HU en el contenido
+                hu_pattern = f"{hu_name}:"
+                
+                # Extraer contenido de esa HU específica
+                if hu_pattern in hu.contenido:
+                    hu_inicio = hu.contenido.find(hu_pattern)
+                    hu_siguiente = hu.contenido.find("\nHU", hu_inicio + 1)
+                    if hu_siguiente == -1:
+                        hu_contenido_especifico = hu.contenido[hu_inicio:]
+                    else:
+                        hu_contenido_especifico = hu.contenido[hu_inicio:hu_siguiente]
+                else:
+                    hu_contenido_especifico = hu_name
+                
+                # 🔑 IMPORTANTE: Extraer TODOS los RF asociados a esta HU
+                # Buscar con múltiples formatos: HU1, HU01, HU001, etc.
+                requisitos_especificos = []
+                
+                # Extraer número de HU (ej: HU1 -> 1, HU02 -> 2)
+                hu_numero = hu_name.replace("HU", "").lstrip("0") or "0"
+                
+                for line in requisitos_art.contenido.split('\n'):
+                    # Buscar múltiples formatos: [HU1], [HU01], [HU001], etc.
+                    if line.strip().startswith("RF") and (f"[{hu_name}]" in line or f"[HU0{hu_numero}]" in line or f"[HU{hu_numero}]" in line):
+                        requisitos_especificos.append(line.strip())
+                
+                if not requisitos_especificos:
+                    print(f"[DEBUG] No se encontraron RF para {hu_name} en regeneración")
+                    print(f"[DEBUG] Buscando patrones: [{hu_name}], [HU0{hu_numero}], [HU{hu_numero}]")
+                    continue
+                
+                requisitos_texto = "\n".join(requisitos_especificos)
+                
+                # Generar diagrama para esta HU específica
+                contenido_diagrama = generar_subartefacto_con_prompt(
+                    tipo="Diagrama de flujo",
+                    historia_usuario=hu_contenido_especifico,
+                    requisitos=requisitos_texto
+                )
+                
+                contenido_diagrama = limpiar_mermaid(contenido_diagrama)
+                
+                # Extraer RF para guardar en relación
+                rf_list = [rf.split()[0] for rf in requisitos_especificos if rf.split()]
+                
+                # Actualizar artefacto existente
+                diagrama_existente.contenido = contenido_diagrama
+                diagrama_existente.requisitos_relacionados = rf_list
+                diagrama_existente.save()
+                
+                diagramas_regenerados += 1
+                print(f"[DEBUG] Diagrama para {hu_name} regenerado")
+                
+            except Exception as e:
+                print(f"[ERROR] Regenerando diagrama para {hu_name}: {str(e)}")
+                continue
+        
+        messages.success(request, f"✅ Se regeneraron {diagramas_regenerados} Diagrama(s) de Flujo")
+        
+    except Exception as e:
+        messages.error(request, f"❌ Error al regenerar: {str(e)}")
+    
+    return redirect('ver_diagramas_flujo', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def eliminar_todos_diagramas_flujo(request, proyecto_id):
+    """
+    Vista para ELIMINAR todos los diagramas de flujo de un proyecto.
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    try:
+        diagramas = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__startswith="Diagrama de flujo"
+        )
+        
+        cantidad = diagramas.count()
+        diagramas.delete()
+        
+        messages.success(request, f"✅ Se eliminaron {cantidad} Diagrama(s) de Flujo correctamente")
+        
+    except Exception as e:
+        messages.error(request, f"❌ Error al eliminar diagramas: {str(e)}")
+    
+    return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def regenerar_diagrama_individual(request, diagrama_id):
+    """
+    Vista para REGENERAR UN SOLO diagrama de flujo con IA.
+    """
+    diagrama = get_object_or_404(Artefacto, id=diagrama_id)
+    proyecto = diagrama.proyecto
+    
+    # Verificar que el usuario sea propietario del proyecto
+    if proyecto.propietario != request.user:
+        messages.error(request, "❌ No tienes permiso para regenerar este diagrama")
+        return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    try:
+        hu_name = diagrama.historia_usuario_relacionada or ""
+        
+        artefactos = Artefacto.objects.filter(proyecto=proyecto)
+        hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
+        requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
+        
+        if not hu or not requisitos_art or not requisitos_art.contenido:
+            messages.error(request, "❌ No se encontraron los datos necesarios para regenerar")
+            return redirect('ver_diagramas_flujo', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # Buscar contenido específico de esa HU
+        hu_pattern = f"{hu_name}:"
+        if hu_pattern in hu.contenido:
+            hu_inicio = hu.contenido.find(hu_pattern)
+            hu_siguiente = hu.contenido.find("\nHU", hu_inicio + 1)
+            if hu_siguiente == -1:
+                hu_contenido_especifico = hu.contenido[hu_inicio:]
+            else:
+                hu_contenido_especifico = hu.contenido[hu_inicio:hu_siguiente]
+        else:
+            hu_contenido_especifico = hu_name
+        
+        # Extraer RF específicos de esta HU
+        requisitos_especificos = []
+        hu_numero = hu_name.replace("HU", "").lstrip("0") or "0"
+        
+        for line in requisitos_art.contenido.split('\n'):
+            if line.strip().startswith("RF") and (f"[{hu_name}]" in line or f"[HU0{hu_numero}]" in line or f"[HU{hu_numero}]" in line):
+                requisitos_especificos.append(line.strip())
+        
+        if not requisitos_especificos:
+            messages.warning(request, f"⚠️ No se encontraron Requisitos para {hu_name}")
+            return redirect('ver_diagramas_flujo', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # Regenerar diagrama
+        requisitos_texto = "\n".join(requisitos_especificos)
+        
+        contenido_diagrama = generar_subartefacto_con_prompt(
+            tipo="Diagrama de flujo",
+            historia_usuario=hu_contenido_especifico,
+            requisitos=requisitos_texto
+        )
+        
+        contenido_diagrama = limpiar_mermaid(contenido_diagrama)
+        
+        # Extraer RF para guardar
+        rf_list = [rf.split()[0] for rf in requisitos_especificos if rf.split()]
+        
+        # Actualizar diagrama
+        diagrama.contenido = contenido_diagrama
+        diagrama.requisitos_relacionados = rf_list
+        diagrama.save()
+        
+        messages.success(request, f"✅ Diagrama de {hu_name} regenerado exitosamente con IA")
+        
+    except Exception as e:
+        import traceback
+        print(f"[ERROR] Regenerando diagrama individual: {str(e)}")
+        print(traceback.format_exc())
+        messages.error(request, f"❌ Error al regenerar diagrama: {str(e)}")
+    
+    return redirect('ver_diagramas_flujo', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
 
 # ===================== IA GENERACIÓN AUTOMÁTICA ARTEFACTOS Y SUBARTEFACTOS =====================
 
@@ -499,15 +824,50 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
         messages.warning(request, "⚠️ Primero debes generar la Historia de Usuario antes de crear este tipo de artefacto.")
         return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
 
-    # Verificar si ya existe el artefacto
-    artefacto_existente = Artefacto.objects.filter(
-        proyecto=proyecto,
-        titulo=subartefacto.nombre
-    ).first()
-    if artefacto_existente:
-        return redirect('ver_artefacto', artefacto_id=artefacto_existente.id)  # pyright: ignore[reportAttributeAccessIssue]
+    # ⚠️ ESPECIAL: Para "Diagrama de flujo" - solo generar si no existen
+    if subartefacto.nombre == "Diagrama de flujo":
+        # Verificar si ya existen diagramas de flujo para este proyecto
+        diagramas_existentes = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__startswith="Diagrama de flujo"
+        ).exists()
+        
+        if diagramas_existentes:
+            # Si ya existen, simplemente ir a verlos (NO regenerar)
+            messages.info(request, "ℹ️ Los Diagramas de Flujo ya fueron generados.")
+            return redirect('ver_diagramas_flujo', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # MODO GENERACIÓN: Crear los diagramas por primera vez
+        assert hu is not None, "Historia de Usuario no encontrada"
+        
+        requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
+        
+        if not requisitos_art or not requisitos_art.contenido:
+            messages.error(request, "❌ No se encontraron Requisitos para generar diagramas de flujo")
+            return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # Extraer todas las HU del contenido de Requisitos
+        hu_list = extraer_historias_de_usuario(requisitos_art.contenido)
+        
+        if not hu_list:
+            messages.error(request, "❌ No se encontraron Historias de Usuario en los Requisitos")
+            return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # Si llegó aquí, significa que ES la primera generación y continuará con el código de abajo
+        # (la generación se hace en el bloque elif más abajo)
+    
+    # Verificar si ya existe el artefacto (excepto Diagrama de flujo que ya fue manejado)
+    if subartefacto.nombre != "Diagrama de flujo":
+        artefacto_existente = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo=subartefacto.nombre
+        ).first()
+        if artefacto_existente:
+            return redirect('ver_artefacto', artefacto_id=artefacto_existente.id)  # pyright: ignore[reportAttributeAccessIssue]
 
     try:
+        rf_list = []  # Inicializar lista de RF
+        
         if subartefacto.nombre == "Requisitos":
             # Para Requisitos: usa el contenido de la Historia de Usuario
             assert hu is not None, "Historia de Usuario no encontrada"
@@ -522,8 +882,106 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
                 nombre_proyecto=proyecto.nombre,
                 descripcion=proyecto.descripcion
             )
+        elif subartefacto.nombre == "Diagrama de flujo":
+            # ✨ ESPECIAL: Generar UN DIAGRAMA POR CADA HISTORIA DE USUARIO
+            assert hu is not None, "Historia de Usuario no encontrada"
+            
+            requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
+            
+            if not requisitos_art or not requisitos_art.contenido:
+                raise ValueError("No se encontraron Requisitos para generar diagramas de flujo")
+            
+            # 🔑 IMPORTANTE: Extraer HU DIRECTAMENTE de los Requisitos, no de la Historia de Usuario
+            # Porque los Requisitos pueden tener HU que no están en la Historia de Usuario
+            hu_list = extraer_historias_de_usuario(requisitos_art.contenido)
+            
+            if not hu_list:
+                raise ValueError("No se encontraron Historias de Usuario en los Requisitos")
+            
+            diagramas_creados = 0
+            
+            # Crear UN DIAGRAMA por cada HU con TODOS sus RF
+            for hu_name in hu_list:
+                try:
+                    # Buscar la HU en el contenido de Historia de Usuario
+                    hu_pattern = f"{hu_name}:"
+                    
+                    # Extraer contenido de esa HU específica
+                    if hu_pattern in hu.contenido:
+                        hu_inicio = hu.contenido.find(hu_pattern)
+                        hu_siguiente = hu.contenido.find("\nHU", hu_inicio + 1)
+                        if hu_siguiente == -1:
+                            hu_contenido_especifico = hu.contenido[hu_inicio:]
+                        else:
+                            hu_contenido_especifico = hu.contenido[hu_inicio:hu_siguiente]
+                    else:
+                        # Si no está en HU, usar solo el nombre de la HU
+                        hu_contenido_especifico = hu_name
+                    
+                    # 🔑 IMPORTANTE: Extraer TODOS los RF asociados a esta HU específica
+                    # Buscar con múltiples formatos: HU1, HU01, HU001, etc.
+                    requisitos_especificos = []
+                    
+                    # Extraer número de HU (ej: HU1 -> 1, HU02 -> 2)
+                    hu_numero = hu_name.replace("HU", "").lstrip("0") or "0"
+                    
+                    for line in requisitos_art.contenido.split('\n'):
+                        # Buscar múltiples formatos: [HU1], [HU01], [HU001], etc.
+                        if line.strip().startswith("RF") and (f"[{hu_name}]" in line or f"[HU0{hu_numero}]" in line or f"[HU{hu_numero}]" in line):
+                            requisitos_especificos.append(line.strip())
+                    
+                    if not requisitos_especificos:
+                        print(f"[DEBUG] No se encontraron RF para {hu_name}")
+                        print(f"[DEBUG] Buscando patrones: [{hu_name}], [HU0{hu_numero}], [HU{hu_numero}]")
+                        print(f"[DEBUG] Primeras 500 caracteres de requisitos: {requisitos_art.contenido[:500]}")
+                        continue
+                    
+                    # Construir texto con TODOS los requisitos
+                    requisitos_texto = "\n".join(requisitos_especificos)
+                    
+                    print(f"[DEBUG] Generando diagrama para {hu_name} con {len(requisitos_especificos)} RF")
+                    
+                    # Generar UN DIAGRAMA que muestre el flujo de esta HU con sus RF
+                    contenido_diagrama = generar_subartefacto_con_prompt(
+                        tipo="Diagrama de flujo",
+                        historia_usuario=hu_contenido_especifico,
+                        requisitos=requisitos_texto
+                    )
+                    
+                    contenido_diagrama = limpiar_mermaid(contenido_diagrama)
+                    
+                    # Extraer RF para guardar en relación
+                    rf_list = [rf.split()[0] for rf in requisitos_especificos if rf.split()]
+                    
+                    # Crear UN artefacto por HU
+                    Artefacto.objects.create(
+                        proyecto=proyecto,
+                        fase=subartefacto.fase,
+                        subartefacto=subartefacto,
+                        titulo=f"Diagrama de flujo - {hu_name}",
+                        contenido=contenido_diagrama,
+                        requisitos_relacionados=rf_list,
+                        historia_usuario_relacionada=hu_name,
+                        generado_por_ia=True
+                    )
+                    
+                    diagramas_creados += 1
+                    print(f"[DEBUG] Diagrama para {hu_name} creado exitosamente")
+                    
+                except Exception as e:
+                    import traceback
+                    print(f"[ERROR] Generando diagrama para {hu_name}: {str(e)}")
+                    print(traceback.format_exc())
+                    continue
+            
+            if diagramas_creados == 0:
+                raise ValueError(f"No se pudieron crear diagramas. Se procesaron {len(hu_list)} HU pero ninguna tenía RF asociados")
+            
+            # Redireccionar a vista de diagramas
+            messages.success(request, f"✅ Se generaron {diagramas_creados} Diagrama(s) de Flujo (uno por cada Historia de Usuario)")
+            return redirect('ver_diagramas_flujo', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
         else:
-            # Para diagramas: usa Historia de Usuario
+            # Para otros diagramas: usa Historia de Usuario
             assert hu is not None, "Historia de Usuario no encontrada"
             texto_diagrama = hu.contexto if hu.contexto else hu.contenido
             contenido = generar_subartefacto_con_prompt(
@@ -535,6 +993,7 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
     except Exception as e:
         import traceback
         contenido = f"[ERROR IA] {str(e)}\n{traceback.format_exc()}"
+        rf_list = []
 
     artefacto = Artefacto.objects.create(
         proyecto=proyecto,
@@ -542,6 +1001,7 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
         subartefacto=subartefacto,
         titulo=subartefacto.nombre,
         contenido=contenido,
+        requisitos_relacionados=rf_list,
         generado_por_ia=True
     )
 
@@ -585,16 +1045,8 @@ def generar_subartefacto_modal(request, proyecto_id):
 def descargar_diagrama(request, artefacto_id):
     artefacto = get_object_or_404(Artefacto, id=artefacto_id, proyecto__propietario=request.user)
     
-    diagramas_validos = [
-        "Diagrama de flujo",
-        "Diagrama de Entidad-Relacion",
-        "Diagrama de secuencia",
-        "Diagrama de estado",
-        "Diagrama de C4-contexto",
-        "Diagrama de C4-contenedor",
-        "Diagrama de C4-implementación"
-    ]
-    if artefacto.titulo not in diagramas_validos:
+    # Aceptar cualquier diagrama que comience con "Diagrama"
+    if not artefacto.titulo.startswith("Diagrama"):
         return HttpResponse("Este artefacto no es un diagrama válido para descarga.", status=400)
 
     filename = f"{artefacto.titulo.replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.mmd"

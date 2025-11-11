@@ -108,6 +108,17 @@ class Artefacto(models.Model):
     titulo: models.CharField = models.CharField(max_length=100)
     contenido: models.TextField = models.TextField()
     contexto: models.TextField = models.TextField(blank=True, null=True)  # Nuevo campo para requisitos
+    requisitos_relacionados: models.JSONField = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Lista de RF implementados en este artefacto"
+    )
+    historia_usuario_relacionada: models.CharField = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Nombre de la HU a la que pertenece este diagrama"
+    )
     generado_por_ia: models.BooleanField = models.BooleanField(default=True)
     creado: models.DateTimeField = models.DateTimeField(auto_now_add=True)
     actualizado: models.DateTimeField = models.DateTimeField(auto_now=True)
