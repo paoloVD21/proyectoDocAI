@@ -326,6 +326,27 @@ def editar_artefacto(request, artefacto_id):
                             artefacto.contexto = requisitos
                         except Exception as e:
                             artefacto.contexto = "[ERROR AL EXTRAER REQUISITOS]"
+                    
+                    # Especial para Requisitos: necesita la Historia de Usuario actual
+                    elif artefacto.titulo.lower() == "requisitos":
+                        # Buscar la Historia de Usuario del proyecto
+                        artefactos = Artefacto.objects.filter(proyecto=proyecto)
+                        hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
+                        
+                        if not hu:
+                            hu = artefactos.filter(titulo__icontains="Historia").first()
+                        
+                        if hu and hu.contenido and hu.contenido.strip() != "":
+                            # Pasar la Historia de Usuario completa al prompt
+                            contenido = generar_subartefacto_con_prompt(
+                                tipo="Requisitos",
+                                texto=hu.contenido
+                            )
+                            artefacto.contenido = contenido
+                            artefacto.generado_por_ia = True
+                        else:
+                            raise ValueError("No se encontró Historia de Usuario para regenerar Requisitos")
+                    
                     else:
                         contenido = generar_subartefacto_con_prompt(
                             tipo=artefacto.titulo,
