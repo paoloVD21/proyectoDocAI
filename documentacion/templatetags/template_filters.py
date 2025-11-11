@@ -92,14 +92,43 @@ def filter_requisitos(requisitos_texto, numero_historia):
         
         requisitos = []
         numero_hu = str(numero_historia)
-        patron = rf'\[HU{numero_hu}\]'
         
-        # Dividir por líneas y buscar requisitos que mencionen [HU#]
+        # Generar variantes del número: 1, 01, 001, etc.
+        numero_hu_padded = numero_hu.zfill(2)  # "1" -> "01", "10" -> "10"
+        numero_hu_padded3 = numero_hu.zfill(3)  # "1" -> "001", "10" -> "010"
+        
+        # Patrones flexibles que buscan [HU01], [HU1], HU01, HU1, etc.
+        patrones = [
+            rf'\[?HU{numero_hu_padded}\]?',      # [HU01], HU01
+            rf'\[?HU{numero_hu}\]?',              # [HU1], HU1
+            rf'\[?HU{numero_hu_padded3}\]?',      # [HU001], HU001
+        ]
+        
+        # Dividir por líneas y buscar requisitos
         for linea in requisitos_texto.split('\n'):
-            if re.search(patron, linea):
-                # Eliminar el identificador [HU#] para una mejor visualización
-                requisito_limpio = re.sub(r'\[HU\d+\]', '', linea).strip()
-                requisitos.append(requisito_limpio)
+            linea = linea.strip()
+            if not linea:
+                continue
+            
+            # Buscar cualquier patrón
+            encontrado = False
+            for patron in patrones:
+                if re.search(patron, linea, re.IGNORECASE):
+                    encontrado = True
+                    break
+            
+            if encontrado:
+                # Limpiar identificadores
+                requisito_limpio = linea
+                
+                # Eliminar [HU##] en cualquier formato
+                requisito_limpio = re.sub(r'\[?HU\d{1,3}\]?', '', requisito_limpio, flags=re.IGNORECASE).strip()
+                
+                # Eliminar RF## al inicio si existe
+                requisito_limpio = re.sub(r'^RF\d+\s*[-:.]?\s*', '', requisito_limpio, flags=re.IGNORECASE).strip()
+                
+                if requisito_limpio:  # Solo agregar si queda contenido
+                    requisitos.append(requisito_limpio)
         
         return requisitos
     except Exception as e:

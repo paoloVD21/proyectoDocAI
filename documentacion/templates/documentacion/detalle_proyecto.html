@@ -16,6 +16,15 @@
         </div>
     </div>
 
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="border-radius: 10px;">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
     {% if fases %}
         {% if not caso_uso_con_requisitos %}
         <div class="alert alert-warning text-dark text-center shadow-sm mb-4 border border-warning">
@@ -94,18 +103,36 @@
                             <div class="list-group list-group-flush">
                                 {% for sub in fase.subartefactos_ordenados %}
                                 <div class="list-group-item px-0 py-2 border-0 border-bottom">
-                                    {% if caso_uso_con_requisitos and requisitos_generados %}
-                                        <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
-                                           class="btn btn-sm btn-outline-primary w-100 text-truncate"
-                                           title="{{ sub.nombre }}"
-                                           style="border-radius: 10px; font-size: 0.7rem;">
-                                            {{ sub.nombre }}
-                                        </a>
+                                    {% if sub.nombre == "Diagrama de flujo" %}
+                                        {% if caso_uso_con_requisitos and requisitos_generados and requisitos_existe %}
+                                            <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
+                                               class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                               title="Desbloquear después de completar Análisis"
+                                               style="border-radius: 10px; font-size: 0.7rem;">
+                                                {{ sub.nombre }}
+                                            </a>
+                                        {% else %}
+                                            <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
+                                                title="Completa Análisis primero: HU + Requisitos"
+                                                style="border-radius: 10px; font-size: 0.7rem;">
+                                                🚫 {{ sub.nombre }}
+                                            </button>
+                                        {% endif %}
                                     {% else %}
-                                        <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
-                                            style="border-radius: 10px; font-size: 0.7rem;">
-                                            🚫 {{ sub.nombre }}
-                                        </button>
+                                        {% if diagrama_flujo_generado and requisitos_existe %}
+                                            <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
+                                               class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                               title="{{ sub.nombre }}"
+                                               style="border-radius: 10px; font-size: 0.7rem;">
+                                                {{ sub.nombre }}
+                                            </a>
+                                        {% else %}
+                                            <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
+                                                title="Primero genera el Diagrama de Flujo y mantén los Requisitos"
+                                                style="border-radius: 10px; font-size: 0.7rem;">
+                                                🚫 {{ sub.nombre }}
+                                            </button>
+                                        {% endif %}
                                     {% endif %}
                                 </div>
                                 {% endfor %}
@@ -136,7 +163,7 @@
                             <div class="list-group list-group-flush">
                                 {% for sub in fase.subartefactos_ordenados %}
                                 <div class="list-group-item px-0 py-2 border-0 border-bottom">
-                                    {% if caso_uso_con_requisitos and requisitos_generados %}
+                                    {% if todos_diagramas_diseño %}
                                         <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
                                            class="btn btn-sm btn-outline-primary w-100 text-truncate"
                                            title="{{ sub.nombre }}"
@@ -145,6 +172,7 @@
                                         </a>
                                     {% else %}
                                         <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
+                                            title="Completa todos los diagramas de Diseño primero"
                                             style="border-radius: 10px; font-size: 0.7rem;">
                                             🚫 {{ sub.nombre }}
                                         </button>
@@ -178,7 +206,7 @@
                             <div class="list-group list-group-flush">
                                 {% for sub in fase.subartefactos_ordenados %}
                                 <div class="list-group-item px-0 py-2 border-0 border-bottom">
-                                    {% if caso_uso_con_requisitos and requisitos_generados %}
+                                    {% if todos_diagramas_diseño %}
                                         <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
                                            class="btn btn-sm btn-outline-primary w-100 text-truncate"
                                            title="{{ sub.nombre }}"
@@ -187,6 +215,7 @@
                                         </a>
                                     {% else %}
                                         <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
+                                            title="Completa todos los diagramas de Diseño primero"
                                             style="border-radius: 10px; font-size: 0.7rem;">
                                             🚫 {{ sub.nombre }}
                                         </button>

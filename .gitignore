@@ -1,1 +1,19 @@
+# Entornos virtuales
 venv
+
+# Python
+\__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+
+old_requirements.txt
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/

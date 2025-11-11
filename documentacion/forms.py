@@ -9,7 +9,6 @@ from .models import Project, Artefacto, SecurityQuestions
 
 ARTEFACTOS_MERMAID = [
     "Diagrama de flujo",
-    "Diagrama de clases",
     "Diagrama de Entidad-Relacion",
     "Diagrama de secuencia",
     "Diagrama de estado",
@@ -163,7 +162,17 @@ class ArtefactoForm(forms.ModelForm):
     def clean_tipo(self):
         """
         Asigna automáticamente el tipo de artefacto basado en el título.
+        Si estamos editando (artefacto existente), solo retorna el tipo actual.
         """
+        # Si estamos editando, simplemente retorna el tipo existente
+        if self.instance and self.instance.pk:
+            return self.instance.tipo
+        
+        # Si estamos creando uno nuevo, asigna según el título
+        tipo_valor = self.cleaned_data.get('tipo')
+        if tipo_valor:
+            return tipo_valor
+            
         titulo = self.cleaned_data.get('titulo', '').lower()
 
         if titulo == "historia de usuario":
@@ -172,7 +181,7 @@ class ArtefactoForm(forms.ModelForm):
             return 'PRUE'
         elif titulo == "diagrama de flujo":
             return 'AREQ'
-        elif titulo in ("diagrama de clases", "diagrama de entidad-relacion"):
+        elif titulo == "diagrama de entidad-relacion":
             return 'DISE'
         elif titulo in ("diagrama de secuencia", "diagrama de estado"):
             return 'DEVS'
@@ -186,7 +195,10 @@ class ArtefactoForm(forms.ModelForm):
         
         if self.instance and self.instance.pk:
             self.fields['titulo'].disabled = True
-            self.fields['tipo'].disabled = True  
+            self.fields['tipo'].disabled = True
+            
+            # Si el campo está deshabilitado, hacerlo opcional en validación
+            self.fields['tipo'].required = False
 
             titulo = self.instance.titulo.lower()
             if titulo == "historia de usuario":
@@ -195,7 +207,7 @@ class ArtefactoForm(forms.ModelForm):
                 self.initial['tipo'] = 'PRUE'
             elif titulo == "diagrama de flujo":
                 self.initial['tipo'] = 'AREQ'
-            elif titulo in ("diagrama de clases", "diagrama de entidad-relacion"):
+            elif titulo == "diagrama de entidad-relacion":
                 self.initial['tipo'] = 'DISE'
             elif titulo in ("diagrama de secuencia", "diagrama de estado"):
                 self.initial['tipo'] = 'DEVS'

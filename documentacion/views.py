@@ -25,7 +25,6 @@ ARTEFACTOS_TEXTO = [
 
 ARTEFACTOS_MERMAID = [
     "Diagrama de flujo",
-    "Diagrama de clases",
     "Diagrama de Entidad-Relacion",
     "Diagrama de secuencia",
     "Diagrama de estado",
@@ -66,7 +65,7 @@ def crear_proyecto(request):
 
             fases_con_subartefactos = {
                 "Análisis": ["Historia de Usuario", "Requisitos"],
-                "Diseño": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de clases", "Diagrama de Entidad-Relacion"],
+                "Diseño": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de Entidad-Relacion"],
                 "Pruebas": ["caja negra", "smoke"],
                 "Despliegue": ["Diagrama de C4-contexto", "Diagrama de C4-contenedor", "Diagrama de C4-implementación"]
             }
@@ -175,7 +174,7 @@ def detalle_proyecto(request, proyecto_id):
 
     orden_subartefactos = {
         "Análisis": ["Historia de Usuario", "Requisitos"],
-        "Diseño": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de clases", "Diagrama de Entidad-Relacion"],
+        "Diseño": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de Entidad-Relacion"],
         "Pruebas": ["caja negra", "smoke"],
         "Despliegue": ["Diagrama de C4-contexto", "Diagrama de C4-contenedor", "Diagrama de C4-implementación"]
     }
@@ -199,12 +198,62 @@ def detalle_proyecto(request, proyecto_id):
         titulo="Requisitos"
     ).exists()
     
+    # Verificar si ya se generó el diagrama de flujo
+    diagrama_flujo_generado = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo="Diagrama de flujo"
+    ).exists()
+    
+    # Verificar si se generaron todos los diagramas de Diseño
+    diagramas_diseño = [
+        "Diagrama de flujo",
+        "Diagrama de secuencia",
+        "Diagrama de Entidad-Relacion"
+    ]
+    
+    todos_diagramas_diseño = all(
+        Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo=diagrama
+        ).exists()
+        for diagrama in diagramas_diseño
+    )
+    
+    # Verificar que Requisitos siga existiendo (validación crítica)
+    # Si se elimina Requisitos, se bloquean todos los diagramas
+    requisitos_existe = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo="Requisitos"
+    ).exists()
+    
+    # Los 3 diagramas de diseño solo cuentan si Requisitos sigue existiendo
+    todos_diagramas_diseño_validos = todos_diagramas_diseño and requisitos_existe
+    
+    # Determinar qué fases están desbloqueadas
+    # Fase Análisis: siempre desbloqueada
+    # Fase Diseño: 
+    #   - Diagrama de Flujo: desbloqueado si hay HU + Requisitos
+    #   - Otros diagramas: desbloqueados si hay Diagrama de Flujo
+    # Fase Pruebas: desbloqueada solo si hay TODOS los diagramas de Diseño Y Requisitos existe
+    # Fase Despliegue: desbloqueada solo si hay TODOS los diagramas de Diseño Y Requisitos existe
+    
+    fases_desbloqueadas = {
+        "Análisis": True,
+        "Diseño": hu_con_requisitos and requisitos_generados and requisitos_existe,
+        "Pruebas": todos_diagramas_diseño_validos,
+        "Despliegue": todos_diagramas_diseño_validos
+    }
+    
     return render(request, 'documentacion/detalle_proyecto.html', {
         'proyecto': proyecto,
         'fases': fases,
         'artefactos': artefactos,
         'caso_uso_con_requisitos': hu_con_requisitos,
-        'requisitos_generados': requisitos_generados
+        'requisitos_generados': requisitos_generados,
+        'requisitos_existe': requisitos_existe,
+        'diagrama_flujo_generado': diagrama_flujo_generado,
+        'todos_diagramas_diseño': todos_diagramas_diseño_validos,
+        'fases_desbloqueadas': fases_desbloqueadas
     })
 
 # ===================== CREAR Y EDITA ARTEFACTOS =====================
@@ -298,7 +347,7 @@ def editar_artefacto(request, artefacto_id):
                 messages.success(request, '💾 Artefacto actualizado correctamente.')
 
             artefacto.save()
-            return redirect('ver_artefacto', artefacto_id=artefacto.id) # pyright: ignore[reportAttributeAccessIssue]
+            return redirect('detalle_proyecto', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
         else:
             print("❌ Errores de validación:", form.errors) 
             messages.error(request, '❌ Corrige los errores en el formulario.')
@@ -400,7 +449,7 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
             )
 
             messages.success(request, "✅ Historia de Usuario generada correctamente.")
-            return redirect('ver_artefacto', artefacto_id=artefacto.id)  # pyright: ignore[reportAttributeAccessIssue]
+            return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
 
         except Exception as e:
             import traceback
@@ -476,7 +525,7 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
     )
 
     messages.success(request, f"✅ {subartefacto.nombre} generado correctamente.")
-    return redirect('ver_artefacto', artefacto_id=artefacto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
 
 @login_required
 def generar_subartefacto_modal(request, proyecto_id):
@@ -517,7 +566,6 @@ def descargar_diagrama(request, artefacto_id):
     
     diagramas_validos = [
         "Diagrama de flujo",
-        "Diagrama de clases",
         "Diagrama de Entidad-Relacion",
         "Diagrama de secuencia",
         "Diagrama de estado",
