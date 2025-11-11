@@ -29,6 +29,7 @@ MarkupSafe==2.1.5
 Jinja2==3.1.4
 # Deployment & Serving
 whitenoise==6.11.0
+gunicorn==23.0.0
 # Arguments & Package Metadata
 typing_extensions==4.13.2
 packaging==24.2
