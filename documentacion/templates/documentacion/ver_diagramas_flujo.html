@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load template_filters %}
 
 {% block title %}Diagramas de Flujo | {{ proyecto.nombre }}{% endblock %}
 
@@ -29,6 +30,18 @@
 {% endblock %}
 
 {% block content %}
+
+<!-- Notificaciones Flotantes (Sticky) -->
+{% if messages %}
+<div style="position: fixed; bottom: 20px; right: 20px; width: 350px; z-index: 1000; max-height: 60vh; overflow-y: auto;">
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="border-radius: 10px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
 <div class="container mt-4">
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -76,9 +89,16 @@
                     {% if diagrama.requisitos_relacionados %}
                     <div class="mb-3">
                         <h6 class="text-primary mb-2">📋 Requisitos Funcionales:</h6>
-                        <div class="d-flex flex-wrap gap-2">
+                        <div class="space-y-2">
                             {% for rf in diagrama.requisitos_relacionados %}
-                            <span class="badge bg-info text-dark">{{ rf }}</span>
+                            <div class="card card-sm border-info" style="background-color: #f0f7ff; margin-bottom: 8px;">
+                                <div class="card-body p-2">
+                                    <small>
+                                        <strong class="text-info">{{ rf }}:</strong> 
+                                        <span class="text-muted">{{ diagrama.rf_descriptions|get:rf }}</span>
+                                    </small>
+                                </div>
+                            </div>
                             {% endfor %}
                         </div>
                     </div>
@@ -106,51 +126,6 @@
         {% endfor %}
     </div>
 
-    <!-- Vista acoplada: Resumen de todos los diagramas -->
-    <div class="card mt-5 border-info">
-        <div class="card-header bg-info text-white">
-            <h5 class="mb-0">📖 Resumen de Diagramas</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Diagrama</th>
-                            <th>Historia de Usuario</th>
-                            <th>Requisitos Funcionales</th>
-                            <th>Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for diagrama in diagramas %}
-                        <tr class="tr-diagrama" data-diagrama-id="{{ diagrama.id }}" style="cursor: pointer;">
-                            <td>
-                                <strong>{{ diagrama.titulo }}</strong>
-                            </td>
-                            <td>
-                                <span class="badge bg-primary">{{ diagrama.historia_usuario_relacionada }}</span>
-                            </td>
-                            <td>
-                                {% if diagrama.requisitos_relacionados %}
-                                    {% for rf in diagrama.requisitos_relacionados %}
-                                    <span class="badge bg-secondary">{{ rf }}</span>
-                                    {% endfor %}
-                                {% else %}
-                                    <span class="text-muted">Sin requisitos</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge bg-success">Generado</span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
     {% else %}
     <div class="alert alert-warning">
         <i class="bi bi-exclamation-triangle"></i>
@@ -174,17 +149,6 @@
                 const formato = this.dataset.formato;
                 descargarDiagrama(parseInt(diagramaId), formato);
             }, { once: true }); // Se ejecuta solo una vez
-        });
-
-        // Manejadores de tabla para scroll
-        document.querySelectorAll('.tr-diagrama').forEach(row => {
-            row.addEventListener('click', function() {
-                const diagramaId = this.dataset.diagramaId;
-                const elemento = document.querySelector(`[data-diagrama-id="${diagramaId}"]`);
-                if (elemento && elemento.classList.contains('mermaid-container-small')) {
-                    elemento.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            });
         });
     }
 

@@ -91,17 +91,29 @@ def filter_requisitos(requisitos_texto, numero_historia):
             return []
         
         requisitos = []
-        numero_hu = str(numero_historia)
+        
+        # Convertir numero_historia a string si es necesario
+        numero_str = str(numero_historia)
+        
+        # Si viene como "HU1", "HU2", etc., extraer solo el número
+        if numero_str.upper().startswith("HU"):
+            numero_hu = numero_str[2:].lstrip("0") or "0"
+        else:
+            numero_hu = numero_str.lstrip("0") or "0"
         
         # Generar variantes del número: 1, 01, 001, etc.
         numero_hu_padded = numero_hu.zfill(2)  # "1" -> "01", "10" -> "10"
         numero_hu_padded3 = numero_hu.zfill(3)  # "1" -> "001", "10" -> "010"
         
-        # Patrones flexibles que buscan [HU01], [HU1], HU01, HU1, etc.
+        # Patrones CON LÍMITES DE PALABRA para evitar matches parciales
+        # Por ejemplo: [HU1] NO debe matchear [HU12]
         patrones = [
-            rf'\[?HU{numero_hu_padded}\]?',      # [HU01], HU01
-            rf'\[?HU{numero_hu}\]?',              # [HU1], HU1
-            rf'\[?HU{numero_hu_padded3}\]?',      # [HU001], HU001
+            rf'\[HU{numero_hu_padded}\]',      # [HU01] exacto
+            rf'\[HU{numero_hu}\]',              # [HU1] exacto
+            rf'\[HU{numero_hu_padded3}\]',      # [HU001] exacto
+            rf'\bHU{numero_hu_padded}\b',       # HU01 con límites
+            rf'\bHU{numero_hu}\b',              # HU1 con límites
+            rf'\bHU{numero_hu_padded3}\b',      # HU001 con límites
         ]
         
         # Dividir por líneas y buscar requisitos
@@ -121,8 +133,8 @@ def filter_requisitos(requisitos_texto, numero_historia):
                 # Limpiar identificadores
                 requisito_limpio = linea
                 
-                # Eliminar [HU##] en cualquier formato
-                requisito_limpio = re.sub(r'\[?HU\d{1,3}\]?', '', requisito_limpio, flags=re.IGNORECASE).strip()
+                # Eliminar [HU##] en cualquier formato (con límites)
+                requisito_limpio = re.sub(r'\[HU\d{1,3}\]', '', requisito_limpio, flags=re.IGNORECASE).strip()
                 
                 # Eliminar RF## al inicio si existe
                 requisito_limpio = re.sub(r'^RF\d+\s*[-:.]?\s*', '', requisito_limpio, flags=re.IGNORECASE).strip()

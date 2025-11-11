@@ -10,6 +10,17 @@
 
 {% block content %}
 <div class="container mt-1">
+    <!-- Notificaciones Flotantes (Sticky) -->
+    {% if messages %}
+    <div style="position: fixed; bottom: 20px; right: 20px; width: 350px; z-index: 1000; max-height: 60vh; overflow-y: auto;">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="border-radius: 10px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="text-primary">{{ artefacto.titulo }}</h2>
@@ -90,6 +101,27 @@
     <!-- Bloque para Requisitos -->
     <div class="card mt-3 border-info">
         <div class="card-body">
+            {% if hu_especifico %}
+            <!-- Modo: Viendo requisitos filtrados por una HU específica -->
+            <h5 class="card-header bg-info text-white mb-3">Requisitos de {{ hu_especifico }}</h5>
+            <div class="p-4 bg-light rounded shadow-sm">
+                <div class="mb-3">
+                    <h6 class="text-primary mb-2">Requisitos Funcionales Asociados:</h6>
+                    {% with requisitos_historia=artefacto.contenido|filter_requisitos:hu_especifico %}
+                        {% if requisitos_historia %}
+                            {% for requisito in requisitos_historia %}
+                            <div class="alert alert-info mb-2">
+                                {{ requisito }}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted">No se encontraron requisitos específicos para {{ hu_especifico }}.</p>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+            {% else %}
+            <!-- Modo: Viendo requisitos de todas las HU agrupadas -->
             <h5 class="card-header bg-info text-white mb-3">Historias de Usuario y sus Requisitos</h5>
             <div class="p-4 bg-light rounded shadow-sm">
                 {% if hu %}
@@ -126,6 +158,7 @@
                     </div>
                 {% endif %}
             </div>
+            {% endif %}
         </div>
     </div>
     {% endif %}

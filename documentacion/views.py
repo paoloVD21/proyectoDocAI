@@ -239,10 +239,13 @@ def detalle_proyecto(request, proyecto_id):
     hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
     hu_con_requisitos = hu and hu.contexto and hu.contexto.strip() != ""
     
-    # Verificar si ya se generaron los requisitos
+    # Verificar si ya se generaron los requisitos (puede ser el general o por HU)
     requisitos_generados = Artefacto.objects.filter(
         proyecto=proyecto,
-        titulo="Requisitos"
+        titulo__in=["Requisitos", "Requisitos - HU1", "Requisitos - HU2"]
+    ).exists() or Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo__startswith="Requisitos -"
     ).exists()
     
     # Verificar si ya se generó el diagrama de flujo
@@ -270,7 +273,10 @@ def detalle_proyecto(request, proyecto_id):
     # Si se elimina Requisitos, se bloquean todos los diagramas
     requisitos_existe = Artefacto.objects.filter(
         proyecto=proyecto,
-        titulo="Requisitos"
+        titulo__in=["Requisitos", "Requisitos - HU1", "Requisitos - HU2"]
+    ).exists() or Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo__startswith="Requisitos -"
     ).exists()
     
     # Los 3 diagramas de diseño solo cuentan si Requisitos sigue existiendo
@@ -291,6 +297,12 @@ def detalle_proyecto(request, proyecto_id):
         "Despliegue": todos_diagramas_diseño_validos
     }
     
+    # Detectar si hay requisitos por HU (novedad)
+    requisitos_por_hu = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo__startswith="Requisitos -"
+    ).exists()
+    
     return render(request, 'documentacion/detalle_proyecto.html', {
         'proyecto': proyecto,
         'fases': fases,
@@ -298,6 +310,7 @@ def detalle_proyecto(request, proyecto_id):
         'caso_uso_con_requisitos': hu_con_requisitos,
         'requisitos_generados': requisitos_generados,
         'requisitos_existe': requisitos_existe,
+        'requisitos_por_hu': requisitos_por_hu,
         'diagrama_flujo_generado': diagrama_flujo_generado,
         'todos_diagramas_diseño': todos_diagramas_diseño_validos,
         'fases_desbloqueadas': fases_desbloqueadas
@@ -450,7 +463,14 @@ def editar_artefacto(request, artefacto_id):
                 messages.success(request, '💾 Artefacto actualizado correctamente.')
 
             artefacto.save()
-            return redirect('detalle_proyecto', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
+            
+            # Redirect inteligente según el tipo de artefacto
+            if "Diagrama de flujo" in artefacto.titulo:
+                return redirect('ver_diagramas_flujo', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
+            elif "Requisitos" in artefacto.titulo:
+                return redirect('ver_requisitos', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
+            else:
+                return redirect('ver_artefacto', artefacto_id=artefacto.id) # pyright: ignore[reportAttributeAccessIssue]
         else:
             print("❌ Errores de validación:", form.errors) 
             messages.error(request, '❌ Corrige los errores en el formulario.')
@@ -482,7 +502,21 @@ def ver_artefacto(request, artefacto_id):
     
     # Para mostrar Requisitos, necesitamos la Historia de Usuario
     hu = None
+    hu_especifico = None  # Variable para filtrar requisitos por HU específica
+    
     if artefacto.titulo == "Requisitos" or artefacto.titulo.lower() == "requisitos":
+        hu = Artefacto.objects.filter(
+            proyecto=artefacto.proyecto,
+            titulo__iexact="Historia de Usuario"
+        ).first()
+        
+        # Determinar si estamos viendo una HU específica
+        hu_especifico = artefacto.historia_usuario_relacionada
+    elif artefacto.titulo.startswith("Requisitos -"):
+        # Para requisitos por HU: extraer la HU del título
+        # Título es "Requisitos - HU1", así que extraemos "HU1"
+        hu_especifico = artefacto.titulo.replace("Requisitos - ", "").strip()
+        
         hu = Artefacto.objects.filter(
             proyecto=artefacto.proyecto,
             titulo__iexact="Historia de Usuario"
@@ -500,7 +534,76 @@ def ver_artefacto(request, artefacto_id):
         'artefacto': artefacto,
         'is_mermaid': is_mermaid,
         'hu': hu,
+        'hu_especifico': hu_especifico,
     })
+
+
+@login_required
+def ver_requisitos(request, proyecto_id):
+    """
+    Vista que muestra TODOS los requisitos generados para un proyecto (uno por HU).
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    # Obtener todos los requisitos de HU específicas
+    requisitos = list(Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo__startswith="Requisitos -"
+    ))
+    
+    # Si no encuentra requisitos por HU, buscar el artefacto general
+    if not requisitos:
+        requisito_general = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__iexact="Requisitos"
+        ).first()
+        
+        if requisito_general:
+            return redirect('ver_artefacto', artefacto_id=requisito_general.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        messages.warning(request, "⚠️ No se han generado Requisitos aún.")
+        return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    # Ordenar numéricamente por HU (HU1, HU2, ..., HU10, HU11, etc.)
+    def extraer_numero_hu(requisito):
+        hu_str = requisito.historia_usuario_relacionada or ""
+        try:
+            numero = int(hu_str.replace("HU", "").strip())
+            return numero
+        except (ValueError, AttributeError):
+            return float('inf')  # Si no es HU, lo pone al final
+    
+    requisitos.sort(key=extraer_numero_hu)
+    
+    return render(request, 'documentacion/ver_requisitos.html', {
+        'proyecto': proyecto,
+        'requisitos': requisitos,
+        'cantidad_requisitos': len(requisitos),
+    })
+
+
+@login_required
+def eliminar_todos_requisitos(request, proyecto_id):
+    """
+    Vista para ELIMINAR todos los requisitos de un proyecto.
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    try:
+        requisitos = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__startswith="Requisitos -"
+        )
+        
+        cantidad = requisitos.count()
+        requisitos.delete()
+        
+        messages.success(request, f"✅ Se eliminaron {cantidad} Requisitos correctamente")
+        
+    except Exception as e:
+        messages.error(request, f"❌ Error al eliminar requisitos: {str(e)}")
+    
+    return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
 
 
 @login_required
@@ -532,10 +635,42 @@ def ver_diagramas_flujo(request, proyecto_id):
     
     diagramas.sort(key=extraer_numero_hu)
     
+    # Obtener artefactos de Requisitos para extraer descripciones
+    requisitos_dict = {}
+    artefactos = Artefacto.objects.filter(proyecto=proyecto)
+    
+    # Buscar tanto "Requisitos" como "Requisitos - HU#"
+    requisitos_arts = artefactos.filter(titulo__in=["Requisitos"]) | artefactos.filter(titulo__startswith="Requisitos -")
+    
+    for req_art in requisitos_arts:
+        # Extraer descripciones de RFs del contenido
+        # Formato esperado: "RF1 [HU1] descripción" o "RF1: descripción"
+        import re
+        contenido = req_art.contenido or ""
+        
+        # Buscar patrones RF# seguidos de espacios, [HU#], y luego la descripción
+        # Patrón: RF1 [HU1] El sistema debe...
+        matches = re.finditer(r'(RF\d+)\s*(?:\[HU\d+\])?\s*(.+?)(?=\n(?:RF\d+|\Z))', contenido, re.DOTALL)
+        for match in matches:
+            rf_id = match.group(1).strip()
+            rf_desc = match.group(2).strip()
+            # Limpiar saltos de línea y espacios excesivos
+            rf_desc = ' '.join(rf_desc.split())
+            if rf_desc:
+                requisitos_dict[rf_id] = rf_desc
+    
+    # Agregar a cada diagrama sus descripciones de RF
+    for diagrama in diagramas:
+        diagrama.rf_descriptions = {}  # pyright: ignore[reportAttributeAccessIssue]
+        if diagrama.requisitos_relacionados:
+            for rf in diagrama.requisitos_relacionados:
+                diagrama.rf_descriptions[rf] = requisitos_dict.get(rf, "Sin descripción")  # pyright: ignore[reportAttributeAccessIssue]
+    
     return render(request, 'documentacion/ver_diagramas_flujo.html', {
         'proyecto': proyecto,
         'diagramas': diagramas,
         'cantidad_diagramas': len(diagramas),
+        'requisitos_dict': requisitos_dict,
     })
 
 
@@ -686,7 +821,17 @@ def regenerar_diagrama_individual(request, diagrama_id):
         
         artefactos = Artefacto.objects.filter(proyecto=proyecto)
         hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
-        requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
+        
+        # Buscar requisitos (puede ser el general "Requisitos" o los por HU "Requisitos - HU#")
+        requisitos_art = artefactos.filter(
+            titulo__in=["Requisitos"]
+        ).first()
+        
+        if not requisitos_art:
+            # Si no está el general, buscar cualquiera de los por HU
+            requisitos_art = artefactos.filter(
+                titulo__startswith="Requisitos -"
+            ).first()
         
         if not hu or not requisitos_art or not requisitos_art.contenido:
             messages.error(request, "❌ No se encontraron los datos necesarios para regenerar")
@@ -840,7 +985,16 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
         # MODO GENERACIÓN: Crear los diagramas por primera vez
         assert hu is not None, "Historia de Usuario no encontrada"
         
-        requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
+        # Buscar requisitos (puede ser el general "Requisitos" o los por HU "Requisitos - HU#")
+        requisitos_art = artefactos.filter(
+            titulo__in=["Requisitos"]
+        ).first()
+        
+        if not requisitos_art:
+            # Si no está el general, buscar cualquiera de los por HU
+            requisitos_art = artefactos.filter(
+                titulo__startswith="Requisitos -"
+            ).first()
         
         if not requisitos_art or not requisitos_art.contenido:
             messages.error(request, "❌ No se encontraron Requisitos para generar diagramas de flujo")
@@ -871,10 +1025,59 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
         if subartefacto.nombre == "Requisitos":
             # Para Requisitos: usa el contenido de la Historia de Usuario
             assert hu is not None, "Historia de Usuario no encontrada"
-            contenido = generar_subartefacto_con_prompt(
+            
+            # PRIMERO: Generar el contenido general de Requisitos
+            contenido_general = generar_subartefacto_con_prompt(
                 tipo="Requisitos",
                 texto=hu.contenido
             )
+            
+            # 🔑 NUEVO: Crear UN ARTEFACTO DE REQUISITOS POR CADA HU
+            # Extraer todas las HU de los Requisitos generados
+            hu_list = extraer_historias_de_usuario(contenido_general)
+            
+            requisitos_creados = 0
+            
+            if hu_list:
+                # Crear requisitos filtrados por HU
+                for hu_name in hu_list:
+                    try:
+                        # Extraer solo los RF de esta HU
+                        hu_numero = hu_name.replace("HU", "").lstrip("0") or "0"
+                        requisitos_especificos = []
+                        
+                        for line in contenido_general.split('\n'):
+                            if line.strip().startswith("RF") and (f"[{hu_name}]" in line or f"[HU0{hu_numero}]" in line or f"[HU{hu_numero}]" in line):
+                                requisitos_especificos.append(line.strip())
+                        
+                        if requisitos_especificos:
+                            requisitos_texto = "\n".join(requisitos_especificos)
+                            rf_list = [rf.split()[0] for rf in requisitos_especificos if rf.split()]
+                            
+                            # Crear artefacto de Requisitos para esta HU específica
+                            Artefacto.objects.create(
+                                proyecto=proyecto,
+                                fase=subartefacto.fase,
+                                subartefacto=subartefacto,
+                                titulo=f"Requisitos - {hu_name}",
+                                contenido=contenido_general,  # Guardar el contenido general
+                                requisitos_relacionados=rf_list,
+                                historia_usuario_relacionada=hu_name,
+                                generado_por_ia=True
+                            )
+                            
+                            requisitos_creados += 1
+                    except Exception as e:
+                        print(f"[ERROR] Creando requisitos para {hu_name}: {str(e)}")
+                        continue
+                
+                if requisitos_creados > 0:
+                    messages.success(request, f"✅ Se generaron {requisitos_creados} Requisitos (uno por cada Historia de Usuario)")
+                    return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+            
+            # Si no se pudieron crear separados, crear uno general (fallback)
+            contenido = contenido_general
+            rf_list = []
         elif subartefacto.nombre in ARTEFACTOS_TEXTO:
             # Para otros textos: caja negra, smoke
             contenido = generar_subartefacto_con_prompt(
@@ -886,7 +1089,16 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
             # ✨ ESPECIAL: Generar UN DIAGRAMA POR CADA HISTORIA DE USUARIO
             assert hu is not None, "Historia de Usuario no encontrada"
             
-            requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
+            # Buscar requisitos (puede ser el general "Requisitos" o los por HU "Requisitos - HU#")
+            requisitos_art = artefactos.filter(
+                titulo__in=["Requisitos"]
+            ).first()
+            
+            if not requisitos_art:
+                # Si no está el general, buscar cualquiera de los por HU
+                requisitos_art = artefactos.filter(
+                    titulo__startswith="Requisitos -"
+                ).first()
             
             if not requisitos_art or not requisitos_art.contenido:
                 raise ValueError("No se encontraron Requisitos para generar diagramas de flujo")

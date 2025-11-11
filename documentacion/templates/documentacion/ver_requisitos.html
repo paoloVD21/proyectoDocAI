@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load template_filters %}
+
+{% block title %}Requisitos | {{ proyecto.nombre }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/artefactos.css' %}">
+<style>
+    .requisito-card {
+        background-color: #f8f9fa;
+        border-left: 4px solid #0d6efd;
+        margin-bottom: 1rem;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .requisito-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .requisito-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .requisito-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #0d6efd;
+        margin: 0;
+    }
+    
+    .requisito-badge {
+        display: inline-block;
+        background-color: #0d6efd;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .requisito-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .requisito-actions .btn {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .requisito-content {
+        background-color: white;
+        padding: 1rem;
+        border-radius: 0.3rem;
+        border: 1px solid #e9ecef;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .requisito-content ul {
+        margin: 0;
+        padding-left: 1.5rem;
+    }
+    
+    .requisito-content li {
+        margin-bottom: 0.5rem;
+        line-height: 1.6;
+    }
+    
+    .top-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .top-section h2 {
+        margin: 0;
+        color: #0d6efd;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .action-buttons .btn {
+        font-size: 0.9rem;
+    }
+    
+    .requisitos-container {
+        display: grid;
+        gap: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Notificaciones Flotantes (Sticky) -->
+    {% if messages %}
+    <div style="position: fixed; bottom: 20px; right: 20px; width: 350px; z-index: 1000; max-height: 60vh; overflow-y: auto;">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="border-radius: 10px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <!-- Encabezado -->
+    <div class="top-section">
+        <div>
+            <h2>📋 Requisitos Funcionales</h2>
+            <p class="text-muted">Proyecto: <strong>{{ proyecto.nombre }}</strong></p>
+        </div>
+        <div class="action-buttons">
+            <a href="{% url 'detalle_proyecto' proyecto.id %}" class="btn btn-outline-success">← Regresar</a>
+            <form method="post" action="{% url 'eliminar_todos_requisitos' proyecto.id %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger" onclick="return confirm('¿Estás seguro de que quieres eliminar TODOS los requisitos?')">🗑️ Eliminar Todos</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Requisitos por HU -->
+    <div class="requisitos-container">
+        {% for requisito in requisitos %}
+        <div class="requisito-card">
+            <div class="requisito-header">
+                <h5 class="requisito-title">{{ requisito.historia_usuario_relacionada }}</h5>
+                <div class="requisito-actions">
+                    <span class="requisito-badge">{{ requisito.requisitos_relacionados|length }} RF</span>
+                    <a href="{% url 'ver_artefacto' requisito.id %}" class="btn btn-outline-primary btn-sm">👁️ Ver</a>
+                    <a href="{% url 'editar_artefacto' requisito.id %}" class="btn btn-outline-warning btn-sm">✏️ Editar</a>
+                </div>
+            </div>
+            
+            <!-- Contenido: Requisitos específicos de esta HU -->
+            <div class="requisito-content">
+                {% with rf_filtrados=requisito.contenido|filter_requisitos:requisito.historia_usuario_relacionada %}
+                    {% if rf_filtrados %}
+                        <ul class="list-unstyled">
+                            {% for rf in rf_filtrados %}
+                            <li>✓ {{ rf }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted mb-0">No se encontraron requisitos específicos.</p>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="alert alert-info">
+            No hay requisitos para mostrar.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

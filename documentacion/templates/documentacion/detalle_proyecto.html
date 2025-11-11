@@ -65,12 +65,21 @@
                                             {{ sub.nombre }}
                                         </a>
                                     {% elif sub.nombre == "Requisitos" and caso_uso_con_requisitos %}
-                                        <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
-                                           class="btn btn-sm btn-outline-primary w-100 text-truncate"
-                                           title="{{ sub.nombre }}"
-                                           style="border-radius: 10px; font-size: 0.7rem;">
-                                            {{ sub.nombre }}
-                                        </a>
+                                        {% if requisitos_por_hu %}
+                                            <a href="{% url 'ver_requisitos' proyecto.id %}" 
+                                               class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                               title="Ver Requisitos por Historia de Usuario"
+                                               style="border-radius: 10px; font-size: 0.7rem;">
+                                                {{ sub.nombre }}
+                                            </a>
+                                        {% else %}
+                                            <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
+                                               class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                               title="{{ sub.nombre }}"
+                                               style="border-radius: 10px; font-size: 0.7rem;">
+                                                {{ sub.nombre }}
+                                            </a>
+                                        {% endif %}
                                     {% else %}
                                         <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
                                             style="border-radius: 10px; font-size: 0.7rem;">
