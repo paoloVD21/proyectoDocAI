@@ -254,6 +254,12 @@ def detalle_proyecto(request, proyecto_id):
         titulo="Diagrama de flujo"
     ).exists()
     
+    # Verificar si ya se generó el diagrama de secuencia (por HU)
+    diagrama_secuencia_generado = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo__startswith="Diagrama de secuencia"
+    ).exists()
+    
     # Verificar si se generaron todos los diagramas de Diseño
     diagramas_diseño = [
         "Diagrama de flujo",
@@ -312,6 +318,7 @@ def detalle_proyecto(request, proyecto_id):
         'requisitos_existe': requisitos_existe,
         'requisitos_por_hu': requisitos_por_hu,
         'diagrama_flujo_generado': diagrama_flujo_generado,
+        'diagrama_secuencia_generado': diagrama_secuencia_generado,
         'todos_diagramas_diseño': todos_diagramas_diseño_validos,
         'fases_desbloqueadas': fases_desbloqueadas
     })
@@ -467,6 +474,8 @@ def editar_artefacto(request, artefacto_id):
             # Redirect inteligente según el tipo de artefacto
             if "Diagrama de flujo" in artefacto.titulo:
                 return redirect('ver_diagramas_flujo', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
+            elif "Diagrama de secuencia" in artefacto.titulo:
+                return redirect('ver_diagramas_secuencia', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
             elif "Requisitos" in artefacto.titulo:
                 return redirect('ver_requisitos', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
             else:
@@ -675,6 +684,73 @@ def ver_diagramas_flujo(request, proyecto_id):
 
 
 @login_required
+def ver_diagramas_secuencia(request, proyecto_id):
+    """
+    Vista que muestra TODOS los diagramas de secuencia generados para un proyecto.
+    Se accede después de generar los diagramas la primera vez.
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    # Obtener todos los diagramas de secuencia
+    diagramas = list(Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo__startswith="Diagrama de secuencia"
+    ))
+    
+    if not diagramas:
+        messages.warning(request, "⚠️ No se han generado Diagramas de Secuencia aún.")
+        return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    # Ordenar numéricamente por HU (HU1, HU2, ..., HU10, HU11, etc.)
+    def extraer_numero_hu(diagrama):
+        hu_str = diagrama.historia_usuario_relacionada or ""
+        try:
+            numero = int(hu_str.replace("HU", "").strip())
+            return numero
+        except (ValueError, AttributeError):
+            return float('inf')  # Si no es HU, lo pone al final
+    
+    diagramas.sort(key=extraer_numero_hu)
+    
+    # Obtener artefactos de Requisitos para extraer descripciones
+    requisitos_dict = {}
+    artefactos = Artefacto.objects.filter(proyecto=proyecto)
+    
+    # Buscar tanto "Requisitos" como "Requisitos - HU#"
+    requisitos_arts = artefactos.filter(titulo__in=["Requisitos"]) | artefactos.filter(titulo__startswith="Requisitos -")
+    
+    for req_art in requisitos_arts:
+        # Extraer descripciones de RFs del contenido
+        # Formato esperado: "RF1 [HU1] descripción"
+        import re
+        contenido = req_art.contenido or ""
+        
+        # Buscar patrones RF# seguidos de espacios, [HU#], y luego la descripción
+        matches = re.finditer(r'(RF\d+)\s*(?:\[HU\d+\])?\s*(.+?)(?=\n(?:RF\d+|\Z))', contenido, re.DOTALL)
+        for match in matches:
+            rf_id = match.group(1).strip()
+            rf_desc = match.group(2).strip()
+            # Limpiar saltos de línea y espacios excesivos
+            rf_desc = ' '.join(rf_desc.split())
+            if rf_desc:
+                requisitos_dict[rf_id] = rf_desc
+    
+    # Agregar a cada diagrama sus descripciones de RF
+    for diagrama in diagramas:
+        diagrama.rf_descriptions = {}  # pyright: ignore[reportAttributeAccessIssue]
+        if diagrama.requisitos_relacionados:
+            for rf in diagrama.requisitos_relacionados:
+                diagrama.rf_descriptions[rf] = requisitos_dict.get(rf, "Sin descripción")  # pyright: ignore[reportAttributeAccessIssue]
+    
+    return render(request, 'documentacion/ver_diagramas_secuencia.html', {
+        'proyecto': proyecto,
+        'diagramas': diagramas,
+        'cantidad_diagramas': len(diagramas),
+        'requisitos_dict': requisitos_dict,
+    })
+
+
+@login_required
 def regenerar_diagramas_flujo(request, proyecto_id):
     """
     Vista para REGENERAR todos los diagramas de flujo de un proyecto.
@@ -804,6 +880,30 @@ def eliminar_todos_diagramas_flujo(request, proyecto_id):
     return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
 
 
+@login_required
+def eliminar_todos_diagramas_secuencia(request, proyecto_id):
+    """
+    Vista para ELIMINAR todos los diagramas de secuencia de un proyecto.
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    try:
+        diagramas = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__startswith="Diagrama de secuencia"
+        )
+        
+        cantidad = diagramas.count()
+        diagramas.delete()
+        
+        messages.success(request, f"✅ Se eliminaron {cantidad} Diagrama(s) de Secuencia correctamente")
+        
+    except Exception as e:
+        messages.error(request, f"❌ Error al eliminar diagramas: {str(e)}")
+    
+    return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+
+
 def regenerar_diagrama_individual(request, diagrama_id):
     """
     Vista para REGENERAR UN SOLO diagrama de flujo con IA.
@@ -889,6 +989,201 @@ def regenerar_diagrama_individual(request, diagrama_id):
         messages.error(request, f"❌ Error al regenerar diagrama: {str(e)}")
     
     return redirect('ver_diagramas_flujo', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+@login_required
+def regenerar_diagrama_secuencia_individual(request, diagrama_id):
+    """
+    Vista para REGENERAR UN SOLO diagrama de secuencia con IA.
+    """
+    diagrama = get_object_or_404(Artefacto, id=diagrama_id)
+    proyecto = diagrama.proyecto
+    
+    # Verificar que el usuario sea propietario del proyecto
+    if proyecto.propietario != request.user:
+        messages.error(request, "❌ No tienes permiso para regenerar este diagrama")
+        return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    try:
+        hu_name = diagrama.historia_usuario_relacionada or ""
+        
+        artefactos = Artefacto.objects.filter(proyecto=proyecto)
+        hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
+        
+        # Buscar requisitos (puede ser el general "Requisitos" o los por HU "Requisitos - HU#")
+        requisitos_art = artefactos.filter(
+            titulo__in=["Requisitos"]
+        ).first()
+        
+        if not requisitos_art:
+            # Si no está el general, buscar cualquiera de los por HU
+            requisitos_art = artefactos.filter(
+                titulo__startswith="Requisitos -"
+            ).first()
+        
+        if not hu or not requisitos_art or not requisitos_art.contenido:
+            messages.error(request, "❌ No se encontraron los datos necesarios para regenerar")
+            return redirect('ver_diagramas_secuencia', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # Buscar contenido específico de esa HU
+        hu_pattern = f"{hu_name}:"
+        if hu_pattern in hu.contenido:
+            hu_inicio = hu.contenido.find(hu_pattern)
+            hu_siguiente = hu.contenido.find("\nHU", hu_inicio + 1)
+            if hu_siguiente == -1:
+                hu_contenido_especifico = hu.contenido[hu_inicio:]
+            else:
+                hu_contenido_especifico = hu.contenido[hu_inicio:hu_siguiente]
+        else:
+            hu_contenido_especifico = hu_name
+        
+        # Extraer RF específicos de esta HU
+        requisitos_especificos = []
+        hu_numero = hu_name.replace("HU", "").lstrip("0") or "0"
+        
+        for line in requisitos_art.contenido.split('\n'):
+            if line.strip().startswith("RF") and (f"[{hu_name}]" in line or f"[HU0{hu_numero}]" in line or f"[HU{hu_numero}]" in line):
+                requisitos_especificos.append(line.strip())
+        
+        if not requisitos_especificos:
+            messages.warning(request, f"⚠️ No se encontraron Requisitos para {hu_name}")
+            return redirect('ver_diagramas_secuencia', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # Regenerar diagrama de secuencia
+        requisitos_texto = "\n".join(requisitos_especificos)
+        
+        contenido_diagrama = generar_subartefacto_con_prompt(
+            tipo="Diagrama de secuencia",
+            historia_usuario=hu_contenido_especifico,
+            requisitos=requisitos_texto
+        )
+        
+        contenido_diagrama = limpiar_mermaid(contenido_diagrama)
+        
+        # Extraer RF para guardar
+        rf_list = [rf.split()[0] for rf in requisitos_especificos if rf.split()]
+        
+        # Actualizar diagrama
+        diagrama.contenido = contenido_diagrama
+        diagrama.requisitos_relacionados = rf_list
+        diagrama.save()
+        
+        messages.success(request, f"✅ Diagrama de Secuencia de {hu_name} regenerado exitosamente con IA")
+        
+    except Exception as e:
+        import traceback
+        print(f"[ERROR] Regenerando diagrama de secuencia individual: {str(e)}")
+        print(traceback.format_exc())
+        messages.error(request, f"❌ Error al regenerar diagrama de secuencia: {str(e)}")
+    
+    return redirect('ver_diagramas_secuencia', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+@login_required
+def regenerar_diagramas_secuencia(request, proyecto_id):
+    """
+    Vista para REGENERAR todos los diagramas de secuencia de un proyecto.
+    Solo accesible desde la vista ver_diagramas_secuencia.
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    try:
+        artefactos = Artefacto.objects.filter(proyecto=proyecto)
+        hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
+        
+        if not hu:
+            messages.error(request, "❌ No se encontró la Historia de Usuario")
+            return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
+        
+        if not requisitos_art or not requisitos_art.contenido:
+            messages.error(request, "❌ No se encontraron Requisitos para regenerar diagramas de secuencia")
+            return redirect('ver_diagramas_secuencia', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # Extraer todas las HU del contenido de Requisitos
+        hu_list = extraer_historias_de_usuario(requisitos_art.contenido)
+        
+        if not hu_list:
+            messages.error(request, "❌ No se encontraron Historias de Usuario en los Requisitos")
+            return redirect('ver_diagramas_secuencia', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        diagramas_regenerados = 0
+        
+        # Regenerar cada diagrama
+        for hu_name in hu_list:
+            try:
+                diagrama_existente = Artefacto.objects.filter(
+                    proyecto=proyecto,
+                    titulo=f"Diagrama de secuencia - {hu_name}"
+                ).first()
+                
+                if not diagrama_existente:
+                    continue
+                
+                # Buscar la HU en el contenido
+                hu_pattern = f"{hu_name}:"
+                
+                # Extraer contenido de esa HU específica
+                if hu_pattern in hu.contenido:
+                    hu_inicio = hu.contenido.find(hu_pattern)
+                    hu_siguiente = hu.contenido.find("\nHU", hu_inicio + 1)
+                    if hu_siguiente == -1:
+                        hu_contenido_especifico = hu.contenido[hu_inicio:]
+                    else:
+                        hu_contenido_especifico = hu.contenido[hu_inicio:hu_siguiente]
+                else:
+                    hu_contenido_especifico = hu_name
+                
+                # 🔑 IMPORTANTE: Extraer TODOS los RF asociados a esta HU
+                # Buscar con múltiples formatos: HU1, HU01, HU001, etc.
+                requisitos_especificos = []
+                
+                # Extraer número de HU (ej: HU1 -> 1, HU02 -> 2)
+                hu_numero = hu_name.replace("HU", "").lstrip("0") or "0"
+                
+                for line in requisitos_art.contenido.split('\n'):
+                    # Buscar múltiples formatos: [HU1], [HU01], [HU001], etc.
+                    if line.strip().startswith("RF") and (f"[{hu_name}]" in line or f"[HU0{hu_numero}]" in line or f"[HU{hu_numero}]" in line):
+                        requisitos_especificos.append(line.strip())
+                
+                if not requisitos_especificos:
+                    print(f"[DEBUG] No se encontraron RF para {hu_name} en regeneración de secuencias")
+                    print(f"[DEBUG] Buscando patrones: [{hu_name}], [HU0{hu_numero}], [HU{hu_numero}]")
+                    continue
+                
+                requisitos_texto = "\n".join(requisitos_especificos)
+                
+                # Generar diagrama para esta HU específica
+                contenido_diagrama = generar_subartefacto_con_prompt(
+                    tipo="Diagrama de secuencia",
+                    historia_usuario=hu_contenido_especifico,
+                    requisitos=requisitos_texto
+                )
+                
+                contenido_diagrama = limpiar_mermaid(contenido_diagrama)
+                
+                # Extraer RF para guardar en relación
+                rf_list = [rf.split()[0] for rf in requisitos_especificos if rf.split()]
+                
+                # Actualizar artefacto existente
+                diagrama_existente.contenido = contenido_diagrama
+                diagrama_existente.requisitos_relacionados = rf_list
+                diagrama_existente.save()
+                
+                diagramas_regenerados += 1
+                print(f"[DEBUG] Diagrama de secuencia para {hu_name} regenerado")
+                
+            except Exception as e:
+                print(f"[ERROR] Regenerando diagrama de secuencia para {hu_name}: {str(e)}")
+                continue
+        
+        messages.success(request, f"✅ Se regeneraron {diagramas_regenerados} Diagrama(s) de Secuencia")
+        
+    except Exception as e:
+        messages.error(request, f"❌ Error al regenerar: {str(e)}")
+    
+    return redirect('ver_diagramas_secuencia', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
 
 # ===================== IA GENERACIÓN AUTOMÁTICA ARTEFACTOS Y SUBARTEFACTOS =====================
 
@@ -1087,6 +1382,17 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
             )
         elif subartefacto.nombre == "Diagrama de flujo":
             # ✨ ESPECIAL: Generar UN DIAGRAMA POR CADA HISTORIA DE USUARIO
+            # Primero verificar si ya existen
+            diagramas_flujo_existentes = Artefacto.objects.filter(
+                proyecto=proyecto,
+                titulo__startswith="Diagrama de flujo"
+            ).exists()
+            
+            if diagramas_flujo_existentes:
+                # Si ya existen, solo redirigir a verlos
+                messages.info(request, "ℹ️ Los Diagramas de Flujo ya existen.")
+                return redirect('ver_diagramas_flujo', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+            
             assert hu is not None, "Historia de Usuario no encontrada"
             
             # Buscar requisitos (puede ser el general "Requisitos" o los por HU "Requisitos - HU#")
@@ -1192,6 +1498,124 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
             # Redireccionar a vista de diagramas
             messages.success(request, f"✅ Se generaron {diagramas_creados} Diagrama(s) de Flujo (uno por cada Historia de Usuario)")
             return redirect('ver_diagramas_flujo', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # ✨ ESPECIAL: Generar UN DIAGRAMA DE SECUENCIA POR CADA HISTORIA DE USUARIO
+        elif subartefacto.nombre == "Diagrama de secuencia":
+            # ✨ ESPECIAL: Generar UN DIAGRAMA POR CADA HISTORIA DE USUARIO
+            # Primero verificar si ya existen
+            diagramas_secuencia_existentes = Artefacto.objects.filter(
+                proyecto=proyecto,
+                titulo__startswith="Diagrama de secuencia"
+            ).exists()
+            
+            if diagramas_secuencia_existentes:
+                # Si ya existen, solo redirigir a verlos
+                messages.info(request, "ℹ️ Los Diagramas de Secuencia ya existen.")
+                return redirect('ver_diagramas_secuencia', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+            
+            assert hu is not None, "Historia de Usuario no encontrada"
+            
+            # Buscar requisitos (puede ser el general "Requisitos" o los por HU "Requisitos - HU#")
+            requisitos_art = artefactos.filter(
+                titulo__in=["Requisitos"]
+            ).first()
+            
+            if not requisitos_art:
+                # Si no está el general, buscar cualquiera de los por HU
+                requisitos_art = artefactos.filter(
+                    titulo__startswith="Requisitos -"
+                ).first()
+            
+            if not requisitos_art or not requisitos_art.contenido:
+                raise ValueError("No se encontraron Requisitos para generar diagramas de secuencia")
+            
+            # 🔑 IMPORTANTE: Extraer HU DIRECTAMENTE de los Requisitos
+            hu_list = extraer_historias_de_usuario(requisitos_art.contenido)
+            
+            if not hu_list:
+                raise ValueError("No se encontraron Historias de Usuario en los Requisitos")
+            
+            diagramas_creados = 0
+            
+            # Crear UN DIAGRAMA DE SECUENCIA por cada HU con TODOS sus RF
+            for hu_name in hu_list:
+                try:
+                    # Buscar la HU en el contenido de Historia de Usuario
+                    hu_pattern = f"{hu_name}:"
+                    
+                    # Extraer contenido de esa HU específica
+                    if hu_pattern in hu.contenido:
+                        hu_inicio = hu.contenido.find(hu_pattern)
+                        hu_siguiente = hu.contenido.find("\nHU", hu_inicio + 1)
+                        if hu_siguiente == -1:
+                            hu_contenido_especifico = hu.contenido[hu_inicio:]
+                        else:
+                            hu_contenido_especifico = hu.contenido[hu_inicio:hu_siguiente]
+                    else:
+                        # Si no está en HU, usar solo el nombre de la HU
+                        hu_contenido_especifico = hu_name
+                    
+                    # 🔑 IMPORTANTE: Extraer TODOS los RF asociados a esta HU específica
+                    requisitos_especificos = []
+                    
+                    # Extraer número de HU (ej: HU1 -> 1, HU02 -> 2)
+                    hu_numero = hu_name.replace("HU", "").lstrip("0") or "0"
+                    
+                    for line in requisitos_art.contenido.split('\n'):
+                        # Buscar múltiples formatos: [HU1], [HU01], [HU001], etc.
+                        if line.strip().startswith("RF") and (f"[{hu_name}]" in line or f"[HU0{hu_numero}]" in line or f"[HU{hu_numero}]" in line):
+                            requisitos_especificos.append(line.strip())
+                    
+                    if not requisitos_especificos:
+                        print(f"[DEBUG] No se encontraron RF para {hu_name}")
+                        print(f"[DEBUG] Buscando patrones: [{hu_name}], [HU0{hu_numero}], [HU{hu_numero}]")
+                        print(f"[DEBUG] Primeras 500 caracteres de requisitos: {requisitos_art.contenido[:500]}")
+                        continue
+                    
+                    # Construir texto con TODOS los requisitos
+                    requisitos_texto = "\n".join(requisitos_especificos)
+                    
+                    print(f"[DEBUG] Generando diagrama de secuencia para {hu_name} con {len(requisitos_especificos)} RF")
+                    
+                    # Generar UN DIAGRAMA DE SECUENCIA que muestre las interacciones de esta HU con sus RF
+                    contenido_diagrama = generar_subartefacto_con_prompt(
+                        tipo="Diagrama de secuencia",
+                        historia_usuario=hu_contenido_especifico,
+                        requisitos=requisitos_texto
+                    )
+                    
+                    contenido_diagrama = limpiar_mermaid(contenido_diagrama)
+                    
+                    # Extraer RF para guardar en relación
+                    rf_list = [rf.split()[0] for rf in requisitos_especificos if rf.split()]
+                    
+                    # Crear UN artefacto por HU
+                    Artefacto.objects.create(
+                        proyecto=proyecto,
+                        fase=subartefacto.fase,
+                        subartefacto=subartefacto,
+                        titulo=f"Diagrama de secuencia - {hu_name}",
+                        contenido=contenido_diagrama,
+                        requisitos_relacionados=rf_list,
+                        historia_usuario_relacionada=hu_name,
+                        generado_por_ia=True
+                    )
+                    
+                    diagramas_creados += 1
+                    print(f"[DEBUG] Diagrama de secuencia para {hu_name} creado exitosamente")
+                    
+                except Exception as e:
+                    import traceback
+                    print(f"[ERROR] Generando diagrama de secuencia para {hu_name}: {str(e)}")
+                    print(traceback.format_exc())
+                    continue
+            
+            if diagramas_creados == 0:
+                raise ValueError(f"No se pudieron crear diagramas de secuencia. Se procesaron {len(hu_list)} HU pero ninguna tenía RF asociados")
+            
+            # Redireccionar a vista de diagramas de secuencia
+            messages.success(request, f"✅ Se generaron {diagramas_creados} Diagrama(s) de Secuencia (uno por cada Historia de Usuario)")
+            return redirect('ver_diagramas_secuencia', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
         else:
             # Para otros diagramas: usa Historia de Usuario
             assert hu is not None, "Historia de Usuario no encontrada"

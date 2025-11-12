@@ -99,17 +99,27 @@ PROMPTS = {
         "    PEDIDO }o--|| PRODUCTO : contiene"
     ),
 
-    "Diagrama de secuencia": lambda texto: (
-        "Genera un diagrama de secuencia en sintaxis Mermaid basado en el siguiente texto:\n\n"
-        f"{texto}\n\n"
-        "Incluye actores, objetos, mensajes y retornos.\n"
-        "-no utilices explicaciones del diagrama.\n"
-        "Ejemplo:\n"
+    "Diagrama de secuencia": lambda historia_usuario, requisitos: (
+        "Genera un diagrama de secuencia en sintaxis Mermaid basado en la siguiente Historia de Usuario y sus Requisitos Funcionales.\n\n"
+        f"Historia de Usuario:\n{historia_usuario}\n\n"
+        f"Requisitos Funcionales a implementar:\n{requisitos}\n\n"
+        "El diagrama DEBE:\n"
+        "1. Mostrar todos los actores involucrados en la Historia de Usuario\n"
+        "2. Incluir las interacciones necesarias para cumplir CADA requisito funcional\n"
+        "3. Usar estructura sequenceDiagram con actores concisos\n"
+        "4. Incluir mensajes síncronos (->>), asíncronos (-->), y respuestas (-->>)\n"
+        "5. Agrupar interacciones relacionadas con alt, loop, opt o rect si es necesario\n"
+        "6. Mostrar el flujo completo desde inicio hasta fin\n"
+        "7. Los actores pueden ser: Usuario, Sistema, Base de Datos, Servicio Externo, etc.\n\n"
+        "Formato de salida (solo código, sin explicaciones):\n"
         "sequenceDiagram\n"
         "    participant Usuario\n"
         "    participant Sistema\n"
-        "    Usuario->>Sistema: Solicita iniciar sesión\n"
-        "    Sistema-->>Usuario: Muestra pantalla principal"
+        "    participant BD as Base de Datos\n"
+        "    Usuario->>Sistema: Acción inicial\n"
+        "    Sistema->>BD: Consultar datos\n"
+        "    BD-->>Sistema: Retorna datos\n"
+        "    Sistema-->>Usuario: Muestra resultado"
     ),
 
     "Diagrama de estado": lambda texto: (
