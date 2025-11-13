@@ -40,50 +40,56 @@
         {% endif %}
 
         <!-- FILA ÚNICA: Los 4 pasos alineados en la misma altura -->
-        <div class="row g-2 align-items-stretch">
+        <div class="row g-3 align-items-stretch" style="margin-bottom: 40px; justify-content: center;">
             
-            <!-- Paso 1: Análisis -->
-            <div class="col-lg-2-4 col-md-6" style="flex: 0 0 calc(23% - 6px);">
-                <div class="card h-100 shadow-sm" style="border: 3px solid #0d6efd; border-radius: 15px; overflow: hidden;">
-                    <div class="card-header" style="background-color: #0d6efd; border-bottom: none; padding: 8px;">
+            <!-- Fase: Análisis -->
+            <div class="col-lg-2-4 col-md-6" style="flex: 0 0 calc(21% - 8px);">
+                <div class="card-fase h-100" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 8px 24px rgba(13, 110, 253, 0.25); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: none; position: relative;">
+                    <div style="position: absolute; top: -40px; right: -40px; width: 120px; height: 120px; background-color: rgba(255,255,255,0.1); border-radius: 50%; pointer-events: none;"></div>
+                    <div style="padding: 24px 16px 16px; position: relative; z-index: 1;">
                         <div class="text-center">
-                            <span class="badge" style="background-color: rgba(255,255,255,0.3); font-size: 0.65rem; color: white;">Paso 1</span>
-                            <h6 class="card-title mt-1 mb-0 fw-bold text-white" style="font-size: 0.9rem;">Análisis</h6>
+                            <div style="font-size: 2.5rem; margin-bottom: 12px; opacity: 0.9;">📋</div>
+                            <span class="badge" style="background-color: rgba(255,255,255,0.25); font-size: 0.7rem; color: white; padding: 6px 12px; font-weight: 600; letter-spacing: 0.5px;">FASE 1</span>
+                            <h5 class="card-title mt-3 mb-0 fw-bold text-white" style="font-size: 1.1rem; letter-spacing: 0.3px;">Análisis</h5>
+                            <div style="width: 50px; height: 3px; background-color: rgba(255,255,255,0.4); margin: 12px auto; border-radius: 2px;"></div>
                         </div>
                     </div>
-                    <div class="card-body" style="padding: 10px;">
+                    <div class="card-body" style="padding: 16px; flex-grow: 1; display: flex; flex-direction: column;">
                         {% with fase=fases|first %}
                         {% if fase.subartefactos.all %}
-                            <div class="list-group list-group-flush">
+                            <div class="list-group list-group-flush" style="flex-grow: 1;">
                                 {% for sub in fase.subartefactos_ordenados %}
-                                <div class="list-group-item px-0 py-2 border-0 border-bottom">
+                                <div class="list-group-item px-0 py-3 border-0" style="background-color: transparent;">
                                     {% if sub.nombre == "Historia de Usuario" %}
                                         <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
-                                           class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                           class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                            title="{{ sub.nombre }}"
-                                           style="border-radius: 10px; font-size: 0.7rem;">
-                                            {{ sub.nombre }}
+                                           onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                           onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                            ✓ {{ sub.nombre }}
                                         </a>
                                     {% elif sub.nombre == "Requisitos" and caso_uso_con_requisitos %}
                                         {% if requisitos_por_hu %}
                                             <a href="{% url 'ver_requisitos' proyecto.id %}" 
-                                               class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                               class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                                title="Ver Requisitos por Historia de Usuario"
-                                               style="border-radius: 10px; font-size: 0.7rem;">
-                                                {{ sub.nombre }}
+                                               onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                               onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                                ✓ {{ sub.nombre }}
                                             </a>
                                         {% else %}
                                             <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
-                                               class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                               class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                                title="{{ sub.nombre }}"
-                                               style="border-radius: 10px; font-size: 0.7rem;">
-                                                {{ sub.nombre }}
+                                               onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                               onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                                ✓ {{ sub.nombre }}
                                             </a>
                                         {% endif %}
                                     {% else %}
-                                        <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
-                                            style="border-radius: 10px; font-size: 0.7rem;">
-                                            🚫 {{ sub.nombre }}
+                                        <button class="btn w-100 text-truncate" disabled 
+                                            style="background-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; cursor: not-allowed;">
+                                            ✗ {{ sub.nombre }}
                                         </button>
                                     {% endif %}
                                 </div>
@@ -96,113 +102,120 @@
             </div>
 
             <!-- Flecha 1 - Decorativa -->
-            <div class="col-lg-auto col-md-0 d-none d-lg-flex justify-content-center align-items-center" style="font-size: 22px; color: #2d3748; min-width: 25px;">
-                ▶
+            <div class="col-lg-auto col-md-0 d-none d-lg-flex justify-content-center align-items-center" style="font-size: 28px; color: #0d6efd; opacity: 0.6; animation: pulse 2s infinite;">
+                ➜
             </div>
 
-            <!-- Paso 2: Diseño -->
-            <div class="col-lg-2-4 col-md-6" style="flex: 0 0 calc(23% - 6px);">
-                <div class="card h-100 shadow-sm" style="border: 3px solid #198754; border-radius: 15px; overflow: hidden;">
-                    <div class="card-header" style="background-color: #198754; border-bottom: none; padding: 8px;">
+            <!-- Fase: Diseño -->
+            <div class="col-lg-2-4 col-md-6" style="flex: 0 0 calc(21% - 8px);">
+                <div class="card-fase h-100" style="background: linear-gradient(135deg, #198754 0%, #146c43 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 8px 24px rgba(25, 135, 84, 0.25); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: none; position: relative;">
+                    <div style="position: absolute; top: -40px; right: -40px; width: 120px; height: 120px; background-color: rgba(255,255,255,0.1); border-radius: 50%; pointer-events: none;"></div>
+                    <div style="padding: 24px 16px 16px; position: relative; z-index: 1;">
                         <div class="text-center">
-                            <span class="badge" style="background-color: rgba(255,255,255,0.3); font-size: 0.65rem; color: white;">Paso 2</span>
-                            <h6 class="card-title mt-1 mb-0 fw-bold text-white" style="font-size: 0.9rem;">Diseño</h6>
+                            <div style="font-size: 2.5rem; margin-bottom: 12px; opacity: 0.9;">🎨</div>
+                            <span class="badge" style="background-color: rgba(255,255,255,0.25); font-size: 0.7rem; color: white; padding: 6px 12px; font-weight: 600; letter-spacing: 0.5px;">FASE 2</span>
+                            <h5 class="card-title mt-3 mb-0 fw-bold text-white" style="font-size: 1.1rem; letter-spacing: 0.3px;">Diseño</h5>
+                            <div style="width: 50px; height: 3px; background-color: rgba(255,255,255,0.4); margin: 12px auto; border-radius: 2px;"></div>
                         </div>
                     </div>
-                    <div class="card-body" style="padding: 10px;">
+                    <div class="card-body" style="padding: 16px; flex-grow: 1; display: flex; flex-direction: column;">
                         {% with fase=fases|slice:"1:2"|first %}
                         {% if fase.subartefactos.all %}
-                            <div class="list-group list-group-flush">
+                            <div class="list-group list-group-flush" style="flex-grow: 1;">
                                 {% for sub in fase.subartefactos_ordenados %}
-                                <div class="list-group-item px-0 py-2 border-0 border-bottom">
+                                <div class="list-group-item px-0 py-3 border-0" style="background-color: transparent;">
                                     {% if sub.nombre == "Diagrama de flujo" %}
                                         {% if caso_uso_con_requisitos and requisitos_generados and requisitos_existe %}
-                                            <!-- Si ya existen diagramas de flujo, ir directamente a verlos; si no, generar -->
                                             {% if diagrama_flujo_generado %}
                                                 <a href="{% url 'ver_diagramas_flujo' proyecto.id %}" 
-                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                                   class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                                    title="Ver Diagramas de Flujo generados"
-                                                   style="border-radius: 10px; font-size: 0.7rem;">
-                                                    {{ sub.nombre }}
+                                                   onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                                   onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                                    ✓ {{ sub.nombre }}
                                                 </a>
                                             {% else %}
                                                 <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
-                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                                   class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                                    title="Generar Diagrama de Flujo"
-                                                   style="border-radius: 10px; font-size: 0.7rem;">
-                                                    {{ sub.nombre }}
+                                                   onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                                   onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                                    ✓ {{ sub.nombre }}
                                                 </a>
                                             {% endif %}
                                         {% else %}
-                                            <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
-                                                title="Completa Análisis primero: HU + Requisitos"
-                                                style="border-radius: 10px; font-size: 0.7rem;">
-                                                🚫 {{ sub.nombre }}
+                                            <button class="btn w-100 text-truncate" disabled 
+                                                style="background-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; cursor: not-allowed;"
+                                                title="Completa Análisis primero: HU + Requisitos">
+                                                ✗ {{ sub.nombre }}
                                             </button>
                                         {% endif %}
                                     {% elif sub.nombre == "Diagrama de secuencia" %}
                                         {% if caso_uso_con_requisitos and requisitos_generados and requisitos_existe %}
-                                            <!-- Si ya existen diagramas de secuencia, ir directamente a verlos; si no, generar -->
                                             {% if diagrama_secuencia_generado %}
                                                 <a href="{% url 'ver_diagramas_secuencia' proyecto.id %}" 
-                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                                   class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                                    title="Ver Diagramas de Secuencia generados"
-                                                   style="border-radius: 10px; font-size: 0.7rem;">
-                                                    {{ sub.nombre }}
+                                                   onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                                   onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                                    ✓ {{ sub.nombre }}
                                                 </a>
                                             {% else %}
                                                 <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
-                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                                   class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                                    title="Generar Diagrama de Secuencia"
-                                                   style="border-radius: 10px; font-size: 0.7rem;">
-                                                    {{ sub.nombre }}
+                                                   onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                                   onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                                    ✓ {{ sub.nombre }}
                                                 </a>
                                             {% endif %}
                                         {% else %}
-                                            <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
-                                                title="Completa Análisis primero: HU + Requisitos"
-                                                style="border-radius: 10px; font-size: 0.7rem;">
-                                                🚫 {{ sub.nombre }}
+                                            <button class="btn w-100 text-truncate" disabled 
+                                                style="background-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; cursor: not-allowed;"
+                                                title="Completa Análisis primero: HU + Requisitos">
+                                                ✗ {{ sub.nombre }}
                                             </button>
                                         {% endif %}
                                     {% elif sub.nombre == "Diagrama de Entidad-Relacion" %}
                                         {% if caso_uso_con_requisitos and requisitos_generados and requisitos_existe and ambos_diagramas_base_generados %}
-                                            <!-- Si ya existe diagrama ER, ir directamente a verlo; si no, generar -->
                                             {% if diagrama_entidad_relacion_generado %}
                                                 <a href="{% url 'ver_diagrama_entidad_relacion' proyecto.id %}" 
-                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                                   class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                                    title="Ver Diagrama de Entidad-Relacion generado"
-                                                   style="border-radius: 10px; font-size: 0.7rem;">
-                                                    {{ sub.nombre }}
+                                                   onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                                   onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                                    ✓ {{ sub.nombre }}
                                                 </a>
                                             {% else %}
                                                 <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
-                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                                   class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                                    title="Generar Diagrama de Entidad-Relacion"
-                                                   style="border-radius: 10px; font-size: 0.7rem;">
-                                                    {{ sub.nombre }}
+                                                   onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                                   onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                                    ✓ {{ sub.nombre }}
                                                 </a>
                                             {% endif %}
                                         {% else %}
-                                            <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
-                                                title="{% if ambos_diagramas_base_generados %}Completa Análisis primero: HU + Requisitos{% else %}Primero genera Diagrama de Flujo y Diagrama de Secuencia{% endif %}"
-                                                style="border-radius: 10px; font-size: 0.7rem;">
-                                                🚫 {{ sub.nombre }}
+                                            <button class="btn w-100 text-truncate" disabled 
+                                                style="background-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; cursor: not-allowed;"
+                                                title="{% if ambos_diagramas_base_generados %}Completa Análisis primero: HU + Requisitos{% else %}Primero genera Diagrama de Flujo y Diagrama de Secuencia{% endif %}">
+                                                ✗ {{ sub.nombre }}
                                             </button>
                                         {% endif %}
                                     {% else %}
                                         {% if diagrama_flujo_generado and requisitos_existe %}
                                             <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
-                                               class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                               class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                                title="{{ sub.nombre }}"
-                                               style="border-radius: 10px; font-size: 0.7rem;">
-                                                {{ sub.nombre }}
+                                               onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                               onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                                ✓ {{ sub.nombre }}
                                             </a>
                                         {% else %}
-                                            <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
-                                                title="Primero genera el Diagrama de Flujo y mantén los Requisitos"
-                                                style="border-radius: 10px; font-size: 0.7rem;">
-                                                🚫 {{ sub.nombre }}
+                                            <button class="btn w-100 text-truncate" disabled 
+                                                style="background-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; cursor: not-allowed;"
+                                                title="Primero genera el Diagrama de Flujo y mantén los Requisitos">
+                                                ✗ {{ sub.nombre }}
                                             </button>
                                         {% endif %}
                                     {% endif %}
@@ -216,62 +229,67 @@
             </div>
 
             <!-- Flecha 2 - Decorativa -->
-            <div class="col-lg-auto col-md-0 d-none d-lg-flex justify-content-center align-items-center" style="font-size: 22px; color: #2d3748; min-width: 25px;">
-                ▶
+            <div class="col-lg-auto col-md-0 d-none d-lg-flex justify-content-center align-items-center" style="font-size: 28px; color: #198754; opacity: 0.6; animation: pulse 2s infinite;">
+                ➜
             </div>
 
-            <!-- Paso 3: Pruebas -->
-            <div class="col-lg-2-4 col-md-6" style="flex: 0 0 calc(23% - 6px);">
-                <div class="card h-100 shadow-sm" style="border: 3px solid #fd7e14; border-radius: 15px; overflow: hidden;">
-                    <div class="card-header" style="background-color: #fd7e14; border-bottom: none; padding: 8px;">
+            <!-- Fase: Pruebas -->
+            <div class="col-lg-2-4 col-md-6" style="flex: 0 0 calc(21% - 8px);">
+                <div class="card-fase h-100" style="background: linear-gradient(135deg, #fd7e14 0%, #e76e0a 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 8px 24px rgba(253, 126, 20, 0.25); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: none; position: relative;">
+                    <div style="position: absolute; top: -40px; right: -40px; width: 120px; height: 120px; background-color: rgba(255,255,255,0.1); border-radius: 50%; pointer-events: none;"></div>
+                    <div style="padding: 24px 16px 16px; position: relative; z-index: 1;">
                         <div class="text-center">
-                            <span class="badge" style="background-color: rgba(255,255,255,0.3); font-size: 0.65rem; color: white;">Paso 3</span>
-                            <h6 class="card-title mt-1 mb-0 fw-bold text-white" style="font-size: 0.9rem;">Pruebas</h6>
+                            <div style="font-size: 2.5rem; margin-bottom: 12px; opacity: 0.9;">🧪</div>
+                            <span class="badge" style="background-color: rgba(255,255,255,0.25); font-size: 0.7rem; color: white; padding: 6px 12px; font-weight: 600; letter-spacing: 0.5px;">FASE 3</span>
+                            <h5 class="card-title mt-3 mb-0 fw-bold text-white" style="font-size: 1.1rem; letter-spacing: 0.3px;">Pruebas</h5>
+                            <div style="width: 50px; height: 3px; background-color: rgba(255,255,255,0.4); margin: 12px auto; border-radius: 2px;"></div>
                         </div>
                     </div>
-                    <div class="card-body" style="padding: 10px;">
+                    <div class="card-body" style="padding: 16px; flex-grow: 1; display: flex; flex-direction: column;">
                         {% with fase=fases|slice:"2:3"|first %}
                         {% if fase.subartefactos.all %}
-                            <div class="list-group list-group-flush">
+                            <div class="list-group list-group-flush" style="flex-grow: 1;">
                                 {% for sub in fase.subartefactos_ordenados %}
-                                <div class="list-group-item px-0 py-2 border-0 border-bottom">
+                                <div class="list-group-item px-0 py-3 border-0" style="background-color: transparent;">
                                     {% if sub.nombre == "caja negra" %}
                                         {% if todos_diagramas_diseño %}
-                                            <!-- Si ya existen pruebas de caja negra, ir a verlas; si no, generar -->
                                             {% if pruebas_caja_negra_generadas %}
                                                 <a href="{% url 'ver_pruebas_caja_negra' proyecto.id %}" 
-                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                                   class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                                    title="Ver Pruebas de Caja Negra generadas"
-                                                   style="border-radius: 10px; font-size: 0.7rem;">
-                                                    {{ sub.nombre }}
+                                                   onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                                   onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                                    ✓ {{ sub.nombre }}
                                                 </a>
                                             {% else %}
                                                 <a href="{% url 'generar_pruebas_caja_negra' proyecto.id %}" 
-                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                                   class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                                    title="Generar Pruebas de Caja Negra"
-                                                   style="border-radius: 10px; font-size: 0.7rem;">
-                                                    {{ sub.nombre }}
+                                                   onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                                   onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                                    ✓ {{ sub.nombre }}
                                                 </a>
                                             {% endif %}
                                         {% else %}
-                                            <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
-                                                title="Completa todos los diagramas de Diseño primero"
-                                                style="border-radius: 10px; font-size: 0.7rem;">
-                                                🚫 {{ sub.nombre }}
+                                            <button class="btn w-100 text-truncate" disabled 
+                                                style="background-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; cursor: not-allowed;"
+                                                title="Completa todos los diagramas de Diseño primero">
+                                                ✗ {{ sub.nombre }}
                                             </button>
                                         {% endif %}
                                     {% elif todos_diagramas_diseño %}
                                         <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
-                                           class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                           class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                            title="{{ sub.nombre }}"
-                                           style="border-radius: 10px; font-size: 0.7rem;">
-                                            {{ sub.nombre }}
+                                           onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                           onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                            ✓ {{ sub.nombre }}
                                         </a>
                                     {% else %}
-                                        <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
-                                            title="Completa todos los diagramas de Diseño primero"
-                                            style="border-radius: 10px; font-size: 0.7rem;">
-                                            🚫 {{ sub.nombre }}
+                                        <button class="btn w-100 text-truncate" disabled 
+                                            style="background-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; cursor: not-allowed;"
+                                            title="Completa todos los diagramas de Diseño primero">
+                                            ✗ {{ sub.nombre }}
                                         </button>
                                     {% endif %}
                                 </div>
@@ -284,37 +302,41 @@
             </div>
 
             <!-- Flecha 3 - Decorativa -->
-            <div class="col-lg-auto col-md-0 d-none d-lg-flex justify-content-center align-items-center" style="font-size: 22px; color: #2d3748; min-width: 25px;">
-                ▶
+            <div class="col-lg-auto col-md-0 d-none d-lg-flex justify-content-center align-items-center" style="font-size: 28px; color: #fd7e14; opacity: 0.6; animation: pulse 2s infinite;">
+                ➜
             </div>
 
-            <!-- Paso 4: Despliegue -->
-            <div class="col-lg-2-4 col-md-6" style="flex: 0 0 calc(23% - 6px);">
-                <div class="card h-100 shadow-sm" style="border: 3px solid #6f42c1; border-radius: 15px; overflow: hidden;">
-                    <div class="card-header" style="background-color: #6f42c1; border-bottom: none; padding: 8px;">
+            <!-- Fase: Despliegue -->
+            <div class="col-lg-2-4 col-md-6" style="flex: 0 0 calc(21% - 8px);">
+                <div class="card-fase h-100" style="background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 8px 24px rgba(111, 66, 193, 0.25); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: none; position: relative;">
+                    <div style="position: absolute; top: -40px; right: -40px; width: 120px; height: 120px; background-color: rgba(255,255,255,0.1); border-radius: 50%; pointer-events: none;"></div>
+                    <div style="padding: 24px 16px 16px; position: relative; z-index: 1;">
                         <div class="text-center">
-                            <span class="badge" style="background-color: rgba(255,255,255,0.3); font-size: 0.65rem; color: white;">Paso 4</span>
-                            <h6 class="card-title mt-1 mb-0 fw-bold text-white" style="font-size: 0.9rem;">Despliegue</h6>
+                            <div style="font-size: 2.5rem; margin-bottom: 12px; opacity: 0.9;">🚀</div>
+                            <span class="badge" style="background-color: rgba(255,255,255,0.25); font-size: 0.7rem; color: white; padding: 6px 12px; font-weight: 600; letter-spacing: 0.5px;">FASE 4</span>
+                            <h5 class="card-title mt-3 mb-0 fw-bold text-white" style="font-size: 1.1rem; letter-spacing: 0.3px;">Despliegue</h5>
+                            <div style="width: 50px; height: 3px; background-color: rgba(255,255,255,0.4); margin: 12px auto; border-radius: 2px;"></div>
                         </div>
                     </div>
-                    <div class="card-body" style="padding: 10px;">
+                    <div class="card-body" style="padding: 16px; flex-grow: 1; display: flex; flex-direction: column;">
                         {% with fase=fases|slice:"3:4"|first %}
                         {% if fase.subartefactos.all %}
-                            <div class="list-group list-group-flush">
+                            <div class="list-group list-group-flush" style="flex-grow: 1;">
                                 {% for sub in fase.subartefactos_ordenados %}
-                                <div class="list-group-item px-0 py-2 border-0 border-bottom">
+                                <div class="list-group-item px-0 py-3 border-0" style="background-color: transparent;">
                                     {% if todos_diagramas_diseño %}
                                         <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
-                                           class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                           class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                            title="{{ sub.nombre }}"
-                                           style="border-radius: 10px; font-size: 0.7rem;">
-                                            {{ sub.nombre }}
+                                           onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
+                                           onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
+                                            ✓ {{ sub.nombre }}
                                         </a>
                                     {% else %}
-                                        <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
-                                            title="Completa todos los diagramas de Diseño primero"
-                                            style="border-radius: 10px; font-size: 0.7rem;">
-                                            🚫 {{ sub.nombre }}
+                                        <button class="btn w-100 text-truncate" disabled 
+                                            style="background-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; cursor: not-allowed;"
+                                            title="Completa todos los diagramas de Diseño primero">
+                                            ✗ {{ sub.nombre }}
                                         </button>
                                     {% endif %}
                                 </div>
@@ -336,13 +358,32 @@
 </div>
 
 <style>
-    .card {
-        transition: all 0.3s ease;
+    .card-fase {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
     }
 
-    .card:hover {
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12) !important;
-        transform: translateY(-2px);
+    .card-fase:hover {
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2) !important;
+        transform: translateY(-8px);
+    }
+
+    .list-group-flush {
+        margin: 0;
+    }
+
+    .list-group-item {
+        background-color: transparent !important;
+        border-color: transparent !important;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 0.6;
+        }
+        50% {
+            opacity: 1;
+        }
     }
 
     .btn {
@@ -354,6 +395,19 @@
 
     .list-group-item:last-child {
         border-bottom: none !important;
+    }
+
+    /* Responsive para dispositivos pequeños */
+    @media (max-width: 1024px) {
+        .col-lg-2-4 {
+            flex: 0 0 calc(33.33% - 8px) !important;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .col-lg-2-4 {
+            flex: 0 0 100% !important;
+        }
     }
 </style>
 
