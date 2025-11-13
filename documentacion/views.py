@@ -66,8 +66,7 @@ def extraer_historias_de_usuario(contenido: str) -> list:
 ARTEFACTOS_TEXTO = [
     "Historia de Usuario",
     "Requisitos",
-    "caja negra",
-    "smoke"
+    "caja negra"
 ]
 
 ARTEFACTOS_MERMAID = [
@@ -113,7 +112,7 @@ def crear_proyecto(request):
             fases_con_subartefactos = {
                 "Análisis": ["Historia de Usuario", "Requisitos"],
                 "Diseño": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de Entidad-Relacion"],
-                "Pruebas": ["caja negra", "smoke"],
+                "Pruebas": ["caja negra"],
                 "Despliegue": ["Diagrama de C4-contexto", "Diagrama de C4-contenedor", "Diagrama de C4-implementación"]
             }
 
@@ -222,7 +221,7 @@ def detalle_proyecto(request, proyecto_id):
     orden_subartefactos = {
         "Análisis": ["Historia de Usuario", "Requisitos"],
         "Diseño": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de Entidad-Relacion"],
-        "Pruebas": ["caja negra", "smoke"],
+        "Pruebas": ["caja negra"],
         "Despliegue": ["Diagrama de C4-contexto", "Diagrama de C4-contenedor", "Diagrama de C4-implementación"]
     }
 
@@ -300,21 +299,6 @@ def detalle_proyecto(request, proyecto_id):
     # Los 3 diagramas de diseño solo cuentan si Requisitos sigue existiendo
     todos_diagramas_diseño_validos = todos_diagramas_diseño and requisitos_existe
     
-    # Determinar qué fases están desbloqueadas
-    # Fase Análisis: siempre desbloqueada
-    # Fase Diseño: 
-    #   - Diagrama de Flujo: desbloqueado si hay HU + Requisitos
-    #   - Otros diagramas: desbloqueados si hay Diagrama de Flujo
-    # Fase Pruebas: desbloqueada solo si hay TODOS los diagramas de Diseño Y Requisitos existe
-    # Fase Despliegue: desbloqueada solo si hay TODOS los diagramas de Diseño Y Requisitos existe
-    
-    fases_desbloqueadas = {
-        "Análisis": True,
-        "Diseño": hu_con_requisitos and requisitos_generados and requisitos_existe,
-        "Pruebas": todos_diagramas_diseño_validos,
-        "Despliegue": todos_diagramas_diseño_validos
-    }
-    
     # Detectar si hay requisitos por HU (novedad)
     requisitos_por_hu = Artefacto.objects.filter(
         proyecto=proyecto,
@@ -325,6 +309,21 @@ def detalle_proyecto(request, proyecto_id):
     pruebas_caja_negra_generadas = PruebacajaNegra.objects.filter(
         proyecto=proyecto
     ).exists()
+    
+    # Determinar qué fases están desbloqueadas
+    # Fase Análisis: siempre desbloqueada
+    # Fase Diseño: 
+    #   - Diagrama de Flujo: desbloqueado si hay HU + Requisitos
+    #   - Otros diagramas: desbloqueados si hay Diagrama de Flujo
+    # Fase Pruebas: desbloqueada solo si hay TODOS los diagramas de Diseño Y Requisitos existe
+    # Fase Despliegue: desbloqueada SOLO si existen pruebas de Caja Negra
+    
+    fases_desbloqueadas = {
+        "Análisis": True,
+        "Diseño": hu_con_requisitos and requisitos_generados and requisitos_existe,
+        "Pruebas": todos_diagramas_diseño_validos,
+        "Despliegue": pruebas_caja_negra_generadas
+    }
     
     return render(request, 'documentacion/detalle_proyecto.html', {
         'proyecto': proyecto,
@@ -1516,7 +1515,7 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
             contenido = contenido_general
             rf_list = []
         elif subartefacto.nombre in ARTEFACTOS_TEXTO:
-            # Para otros textos: caja negra, smoke
+            # Para otros textos: caja negra
             contenido = generar_subartefacto_con_prompt(
                 tipo=subartefacto.nombre,
                 nombre_proyecto=proyecto.nombre,

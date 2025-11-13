@@ -177,7 +177,7 @@ class ArtefactoForm(forms.ModelForm):
 
         if titulo == "historia de usuario":
             return 'AREQ'
-        elif titulo in ("caja negra", "smoke"):
+        elif titulo == "caja negra":
             return 'PRUE'
         elif titulo == "diagrama de flujo":
             return 'AREQ'
@@ -203,7 +203,7 @@ class ArtefactoForm(forms.ModelForm):
             titulo = self.instance.titulo.lower()
             if titulo == "historia de usuario":
                 self.initial['tipo'] = 'AREQ'
-            elif titulo in ("caja negra", "smoke"):
+            elif titulo == "caja negra":
                 self.initial['tipo'] = 'PRUE'
             elif titulo == "diagrama de flujo":
                 self.initial['tipo'] = 'AREQ'
