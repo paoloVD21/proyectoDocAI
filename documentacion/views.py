@@ -74,11 +74,10 @@ ARTEFACTOS_MERMAID = [
     "Diagrama de Entidad-Relacion",
     "Diagrama de secuencia",
     "Diagrama de estado",
-    "Diagrama de C4-contexto",
-    "Diagrama de C4-contenedor",
-    "Diagrama de C4-implementación",
-    "Diagrama de C4-dinámico",
-    "Diagrama de C4-componente"
+    "Diagrama de Contexto C4",
+    "Diagrama de Contenedor C4",
+    "Diagrama de Componente C4",
+    "Diagrama de Despliegue C4"
 ]
 
 ARTEFACTOS_VALIDOS = set(ARTEFACTOS_TEXTO + ARTEFACTOS_MERMAID)
@@ -312,6 +311,17 @@ def detalle_proyecto(request, proyecto_id):
         proyecto=proyecto
     ).exists()
     
+    # Verificar si se han generado diagramas C4
+    diagramas_c4_generados = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo__in=[
+            "Diagrama de Contexto C4",
+            "Diagrama de Contenedor C4",
+            "Diagrama de Componente C4",
+            "Diagrama de Despliegue C4"
+        ]
+    ).exists()
+    
     # Determinar qué fases están desbloqueadas
     # Fase Análisis: siempre desbloqueada
     # Fase Diseño: 
@@ -341,7 +351,8 @@ def detalle_proyecto(request, proyecto_id):
         'ambos_diagramas_base_generados': ambos_diagramas_base_generados,
         'todos_diagramas_diseño': todos_diagramas_diseño_validos,
         'fases_desbloqueadas': fases_desbloqueadas,
-        'pruebas_caja_negra_generadas': pruebas_caja_negra_generadas
+        'pruebas_caja_negra_generadas': pruebas_caja_negra_generadas,
+        'diagramas_c4_generados': diagramas_c4_generados
     })
 
 # ===================== CREAR Y EDITA ARTEFACTOS =====================
@@ -493,7 +504,9 @@ def editar_artefacto(request, artefacto_id):
             artefacto.save()
             
             # Redirect inteligente según el tipo de artefacto
-            if "Diagrama de flujo" in artefacto.titulo:
+            if artefacto.titulo in ["Diagrama de Contexto C4", "Diagrama de Contenedor C4", "Diagrama de Componente C4", "Diagrama de Despliegue C4"]:
+                return redirect('ver_diagramas_c4', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
+            elif "Diagrama de flujo" in artefacto.titulo:
                 return redirect('ver_diagramas_flujo', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
             elif "Diagrama de secuencia" in artefacto.titulo:
                 return redirect('ver_diagramas_secuencia', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
@@ -1846,13 +1859,177 @@ DIAGRAMAS DE SECUENCIA (Interacciones del Sistema):
             return redirect('ver_diagrama_entidad_relacion', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
         
         else:
-            # Para otros diagramas: usa Historia de Usuario
-            assert hu is not None, "Historia de Usuario no encontrada"
-            texto_diagrama = hu.contexto if hu.contexto else hu.contenido
-            contenido = generar_subartefacto_con_prompt(
-                tipo=subartefacto.nombre,
-                texto=texto_diagrama
-            )
+            # ✨ ESPECIAL: Diagramas C4 - GENERAR TODOS LOS 4 JUNTOS
+            if subartefacto.nombre in ["Diagrama de Contexto C4", "Diagrama de Contenedor C4", "Diagrama de Componente C4", "Diagrama de Despliegue C4"]:
+                # Verificar si ya existen diagramas C4
+                diagramas_c4_existentes = Artefacto.objects.filter(
+                    proyecto=proyecto,
+                    titulo__in=[
+                        "Diagrama de Contexto C4",
+                        "Diagrama de Contenedor C4",
+                        "Diagrama de Componente C4",
+                        "Diagrama de Despliegue C4"
+                    ]
+                ).exists()
+                
+                if diagramas_c4_existentes:
+                    messages.info(request, "ℹ️ Los Diagramas C4 ya han sido generados.")
+                    return redirect('ver_diagramas_c4', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+                
+                assert hu is not None, "Historia de Usuario no encontrada"
+                
+                # Generar los 4 diagramas C4
+                diagramas_c4_generados = 0
+                
+                try:
+                    # ========== DIAGRAMA 1: CONTEXTO C4 ==========
+                    requisitos_art = artefactos.filter(titulo__in=["Requisitos"]).first()
+                    if not requisitos_art:
+                        requisitos_art = artefactos.filter(titulo__startswith="Requisitos -").first()
+                    
+                    requisitos_texto = requisitos_art.contenido if requisitos_art else "No hay requisitos disponibles"
+                    
+                    contexto_c4 = f"""HISTORIAS DE USUARIO:
+{hu.contenido}
+
+REQUISITOS FUNCIONALES:
+{requisitos_texto}"""
+                    
+                    contenido_contexto = generar_subartefacto_con_prompt(
+                        tipo="Diagrama de Contexto C4",
+                        texto=contexto_c4
+                    )
+                    contenido_contexto = limpiar_mermaid(contenido_contexto)
+                    
+                    # Obtener subartefacto para Contexto C4
+                    subartefacto_contexto = SubArtefacto.objects.get(nombre="Diagrama de Contexto C4", fase__proyecto=proyecto)
+                    
+                    Artefacto.objects.create(
+                        proyecto=proyecto,
+                        fase=subartefacto_contexto.fase,
+                        subartefacto=subartefacto_contexto,
+                        titulo="Diagrama de Contexto C4",
+                        contenido=contenido_contexto,
+                        requisitos_relacionados=[],
+                        generado_por_ia=True
+                    )
+                    diagramas_c4_generados += 1
+                    
+                    # ========== DIAGRAMA 2: CONTENEDOR C4 ==========
+                    diagramas_flujo = Artefacto.objects.filter(
+                        proyecto=proyecto,
+                        titulo__startswith="Diagrama de flujo"
+                    ).order_by('id')
+                    
+                    contexto_flujos = "\n---\n".join([f"## {d.titulo}\n{d.contenido}" for d in diagramas_flujo]) if diagramas_flujo else "No hay diagramas de flujo"
+                    
+                    contenido_contenedor = generar_subartefacto_con_prompt(
+                        tipo="Diagrama de Contenedor C4",
+                        requisitos=requisitos_texto,
+                        diagramas_flujo=contexto_flujos
+                    )
+                    contenido_contenedor = limpiar_mermaid(contenido_contenedor)
+                    
+                    subartefacto_contenedor = SubArtefacto.objects.get(nombre="Diagrama de Contenedor C4", fase__proyecto=proyecto)
+                    
+                    Artefacto.objects.create(
+                        proyecto=proyecto,
+                        fase=subartefacto_contenedor.fase,
+                        subartefacto=subartefacto_contenedor,
+                        titulo="Diagrama de Contenedor C4",
+                        contenido=contenido_contenedor,
+                        requisitos_relacionados=[],
+                        generado_por_ia=True
+                    )
+                    diagramas_c4_generados += 1
+                    
+                    # ========== DIAGRAMA 3: COMPONENTE C4 ==========
+                    diagramas_secuencia = Artefacto.objects.filter(
+                        proyecto=proyecto,
+                        titulo__startswith="Diagrama de secuencia"
+                    ).order_by('id')
+                    
+                    contexto_secuencias = "\n---\n".join([f"## {d.titulo}\n{d.contenido}" for d in diagramas_secuencia]) if diagramas_secuencia else "No hay diagramas de secuencia"
+                    
+                    diagrama_er = Artefacto.objects.filter(
+                        proyecto=proyecto,
+                        titulo="Diagrama de Entidad-Relacion"
+                    ).first()
+                    
+                    contexto_er = diagrama_er.contenido if diagrama_er else "No hay Diagrama de Entidad-Relacion"
+                    
+                    contenido_componente = generar_subartefacto_con_prompt(
+                        tipo="Diagrama de Componente C4",
+                        diagramas_secuencia=contexto_secuencias,
+                        diagrama_er=contexto_er
+                    )
+                    contenido_componente = limpiar_mermaid(contenido_componente)
+                    
+                    subartefacto_componente = SubArtefacto.objects.get(nombre="Diagrama de Componente C4", fase__proyecto=proyecto)
+                    
+                    Artefacto.objects.create(
+                        proyecto=proyecto,
+                        fase=subartefacto_componente.fase,
+                        subartefacto=subartefacto_componente,
+                        titulo="Diagrama de Componente C4",
+                        contenido=contenido_componente,
+                        requisitos_relacionados=[],
+                        generado_por_ia=True
+                    )
+                    diagramas_c4_generados += 1
+                    
+                    # ========== DIAGRAMA 4: DESPLIEGUE C4 ==========
+                    contexto_despliegue = f"""HISTORIAS DE USUARIO:
+{hu.contenido}
+
+REQUISITOS FUNCIONALES:
+{requisitos_texto}
+
+NOTAS: Basado en los requisitos anteriores, diseña la infraestructura de despliegue necesaria."""
+                    
+                    contenido_despliegue = generar_subartefacto_con_prompt(
+                        tipo="Diagrama de Despliegue C4",
+                        texto=contexto_despliegue
+                    )
+                    contenido_despliegue = limpiar_mermaid(contenido_despliegue)
+                    
+                    subartefacto_despliegue = SubArtefacto.objects.get(nombre="Diagrama de Despliegue C4", fase__proyecto=proyecto)
+                    
+                    Artefacto.objects.create(
+                        proyecto=proyecto,
+                        fase=subartefacto_despliegue.fase,
+                        subartefacto=subartefacto_despliegue,
+                        titulo="Diagrama de Despliegue C4",
+                        contenido=contenido_despliegue,
+                        requisitos_relacionados=[],
+                        generado_por_ia=True
+                    )
+                    diagramas_c4_generados += 1
+                    
+                    messages.success(request, f"✅ Se generaron {diagramas_c4_generados} Diagrama(s) C4 correctamente (Contexto, Contenedor, Componente, Despliegue)")
+                    return redirect('ver_diagramas_c4', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+                
+                except SubArtefacto.DoesNotExist as e:
+                    print(f"[ERROR] SubArtefacto no encontrado: {str(e)}")
+                    messages.error(request, f"❌ Error: Subartefacto no encontrado")
+                    return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+                
+                except Exception as e:
+                    print(f"[ERROR] Generando diagramas C4: {str(e)}")
+                    import traceback
+                    print(traceback.format_exc())
+                    messages.error(request, f"❌ Error al generar diagramas C4: {str(e)}")
+                    return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+            
+            else:
+                # Para otros diagramas: usa Historia de Usuario
+                assert hu is not None, "Historia de Usuario no encontrada"
+                texto_diagrama = hu.contexto if hu.contexto else hu.contenido
+                contenido = generar_subartefacto_con_prompt(
+                    tipo=subartefacto.nombre,
+                    texto=texto_diagrama
+                )
+            
             contenido = limpiar_mermaid(contenido)
 
     except Exception as e:
@@ -2456,3 +2633,339 @@ def regenerar_prueba_caja_negra_individual(request, prueba_id):
         import traceback
         print(traceback.format_exc())
         return JsonResponse({'status': 'error', 'message': f'Error: {str(e)}'}, status=400)
+
+
+# ===================== VER DIAGRAMAS C4 =====================
+
+@login_required
+def ver_diagramas_c4(request, proyecto_id):
+    """
+    Vista que muestra TODOS los diagramas C4 (4 niveles) en una sola página.
+    Nivel 1: Contexto
+    Nivel 2: Contenedor
+    Nivel 3: Componente
+    Nivel 4: Despliegue
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    # Buscar cada diagrama C4 por su nombre exacto
+    diagrama_contexto = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo="Diagrama de Contexto C4"
+    ).first()
+    
+    diagrama_contenedor = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo="Diagrama de Contenedor C4"
+    ).first()
+    
+    diagrama_componente = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo="Diagrama de Componente C4"
+    ).first()
+    
+    diagrama_despliegue = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo="Diagrama de Despliegue C4"
+    ).first()
+    
+    # Contar cuántos se han generado
+    diagramas_generados = sum([
+        1 if diagrama_contexto else 0,
+        1 if diagrama_contenedor else 0,
+        1 if diagrama_componente else 0,
+        1 if diagrama_despliegue else 0
+    ])
+    
+    if diagramas_generados == 0:
+        messages.warning(request, "⚠️ No se han generado Diagramas C4 aún.")
+        return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    context = {
+        'proyecto': proyecto,
+        'diagrama_contexto': diagrama_contexto,
+        'diagrama_contenedor': diagrama_contenedor,
+        'diagrama_componente': diagrama_componente,
+        'diagrama_despliegue': diagrama_despliegue,
+        'diagramas_count': diagramas_generados
+    }
+    
+    return render(request, 'documentacion/ver_diagramas_c4.html', context)
+
+
+@login_required
+def regenerar_diagramas_c4(request, proyecto_id):
+    """
+    Regenera TODOS los diagramas C4 (4 niveles).
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    # Buscar todos los diagramas C4 existentes
+    diagramas_c4 = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo__in=[
+            "Diagrama de Contexto C4",
+            "Diagrama de Contenedor C4",
+            "Diagrama de Componente C4",
+            "Diagrama de Despliegue C4"
+        ]
+    )
+    
+    if not diagramas_c4.exists():
+        messages.warning(request, "⚠️ No hay diagramas C4 para regenerar.")
+        return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    try:
+        regenerados = 0
+        for diagrama in diagramas_c4:
+            # Obtener el subartefacto correspondiente
+            subartefacto = diagrama.subartefacto
+            hu = Artefacto.objects.filter(
+                proyecto=proyecto,
+                titulo__iexact="Historia de Usuario"
+            ).first()
+            
+            artefactos = Artefacto.objects.filter(proyecto=proyecto)
+            
+            # Regenerar según el tipo
+            if diagrama.titulo == "Diagrama de Contexto C4":
+                requisitos_art = artefactos.filter(titulo__in=["Requisitos"]).first()
+                if not requisitos_art:
+                    requisitos_art = artefactos.filter(titulo__startswith="Requisitos -").first()
+                
+                requisitos_texto = requisitos_art.contenido if requisitos_art else "No hay requisitos"
+                contexto_c4 = f"""HISTORIAS DE USUARIO:
+{hu.contenido if hu else 'No disponible'}
+
+REQUISITOS FUNCIONALES:
+{requisitos_texto}"""
+                
+                contenido = generar_subartefacto_con_prompt(
+                    tipo=diagrama.titulo,
+                    texto=contexto_c4
+                )
+            
+            elif diagrama.titulo == "Diagrama de Contenedor C4":
+                requisitos_art = artefactos.filter(titulo__in=["Requisitos"]).first()
+                if not requisitos_art:
+                    requisitos_art = artefactos.filter(titulo__startswith="Requisitos -").first()
+                
+                requisitos_texto = requisitos_art.contenido if requisitos_art else "No hay requisitos"
+                diagramas_flujo = Artefacto.objects.filter(
+                    proyecto=proyecto,
+                    titulo__startswith="Diagrama de flujo"
+                ).order_by('id')
+                
+                contexto_flujos = "\n---\n".join([f"## {d.titulo}\n{d.contenido}" for d in diagramas_flujo]) if diagramas_flujo else "No hay diagramas"
+                
+                contenido = generar_subartefacto_con_prompt(
+                    tipo=diagrama.titulo,
+                    requisitos=requisitos_texto,
+                    diagramas_flujo=contexto_flujos
+                )
+            
+            elif diagrama.titulo == "Diagrama de Componente C4":
+                diagramas_secuencia = Artefacto.objects.filter(
+                    proyecto=proyecto,
+                    titulo__startswith="Diagrama de secuencia"
+                ).order_by('id')
+                
+                contexto_secuencias = "\n---\n".join([f"## {d.titulo}\n{d.contenido}" for d in diagramas_secuencia]) if diagramas_secuencia else "No hay diagramas"
+                
+                diagrama_er = Artefacto.objects.filter(
+                    proyecto=proyecto,
+                    titulo="Diagrama de Entidad-Relacion"
+                ).first()
+                
+                contexto_er = diagrama_er.contenido if diagrama_er else "No disponible"
+                
+                contenido = generar_subartefacto_con_prompt(
+                    tipo=diagrama.titulo,
+                    diagramas_secuencia=contexto_secuencias,
+                    diagrama_er=contexto_er
+                )
+            
+            elif diagrama.titulo == "Diagrama de Despliegue C4":
+                requisitos_art = artefactos.filter(titulo__in=["Requisitos"]).first()
+                if not requisitos_art:
+                    requisitos_art = artefactos.filter(titulo__startswith="Requisitos -").first()
+                
+                requisitos_texto = requisitos_art.contenido if requisitos_art else "No hay requisitos"
+                
+                contexto_c4 = f"""HISTORIAS DE USUARIO:
+{hu.contenido if hu else 'No disponible'}
+
+REQUISITOS FUNCIONALES:
+{requisitos_texto}
+
+NOTAS: Basado en los requisitos anteriores, diseña la infraestructura de despliegue necesaria."""
+                
+                contenido = generar_subartefacto_con_prompt(
+                    tipo=diagrama.titulo,
+                    texto=contexto_c4
+                )
+            
+            contenido = limpiar_mermaid(contenido)
+            diagrama.contenido = contenido
+            diagrama.save()
+            regenerados += 1
+        
+        messages.success(request, f"✅ Se regeneraron {regenerados} Diagrama(s) C4 correctamente")
+        return redirect('ver_diagramas_c4', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    except Exception as e:
+        print(f"[ERROR] Regenerando diagramas C4: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        messages.error(request, f"❌ Error al regenerar: {str(e)}")
+        return redirect('ver_diagramas_c4', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+@login_required
+def eliminar_todos_diagramas_c4(request, proyecto_id):
+    """
+    Elimina TODOS los diagramas C4 (4 niveles).
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    # Buscar todos los diagramas C4 existentes
+    diagramas_c4 = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo__in=[
+            "Diagrama de Contexto C4",
+            "Diagrama de Contenedor C4",
+            "Diagrama de Componente C4",
+            "Diagrama de Despliegue C4"
+        ]
+    )
+    
+    cantidad = diagramas_c4.count()
+    
+    if cantidad == 0:
+        messages.warning(request, "⚠️ No hay diagramas C4 para eliminar.")
+        return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    try:
+        diagramas_c4.delete()
+        messages.success(request, f"✅ Se eliminaron {cantidad} Diagrama(s) C4 correctamente")
+        return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    except Exception as e:
+        print(f"[ERROR] Eliminando diagramas C4: {str(e)}")
+        messages.error(request, f"❌ Error al eliminar: {str(e)}")
+        return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+@login_required
+def regenerar_diagrama_c4_individual(request, artefacto_id):
+    """
+    Regenera un diagrama C4 individual (Contexto, Contenedor, Componente o Despliegue).
+    """
+    diagrama = get_object_or_404(Artefacto, id=artefacto_id)
+    proyecto = diagrama.proyecto
+    
+    # Verificar permisos
+    if proyecto.propietario != request.user:  # pyright: ignore[reportAttributeAccessIssue]
+        return HttpResponse("Acceso denegado", status=403)
+    
+    try:
+        artefactos = Artefacto.objects.filter(proyecto=proyecto)
+        hu = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__iexact="Historia de Usuario"
+        ).first()
+        
+        # Regenerar según el tipo de diagrama C4
+        if diagrama.titulo == "Diagrama de Contexto C4":
+            requisitos_art = artefactos.filter(titulo__in=["Requisitos"]).first()
+            if not requisitos_art:
+                requisitos_art = artefactos.filter(titulo__startswith="Requisitos -").first()
+            
+            requisitos_texto = requisitos_art.contenido if requisitos_art else "No hay requisitos"
+            contexto_c4 = f"""HISTORIAS DE USUARIO:
+{hu.contenido if hu else 'No disponible'}
+
+REQUISITOS FUNCIONALES:
+{requisitos_texto}"""
+            
+            contenido = generar_subartefacto_con_prompt(
+                tipo=diagrama.titulo,
+                texto=contexto_c4
+            )
+        
+        elif diagrama.titulo == "Diagrama de Contenedor C4":
+            requisitos_art = artefactos.filter(titulo__in=["Requisitos"]).first()
+            if not requisitos_art:
+                requisitos_art = artefactos.filter(titulo__startswith="Requisitos -").first()
+            
+            requisitos_texto = requisitos_art.contenido if requisitos_art else "No hay requisitos"
+            diagramas_flujo = Artefacto.objects.filter(
+                proyecto=proyecto,
+                titulo__startswith="Diagrama de flujo"
+            ).order_by('id')
+            
+            contexto_flujos = "\n---\n".join([f"## {d.titulo}\n{d.contenido}" for d in diagramas_flujo]) if diagramas_flujo else "No hay diagramas"
+            
+            contenido = generar_subartefacto_con_prompt(
+                tipo=diagrama.titulo,
+                requisitos=requisitos_texto,
+                diagramas_flujo=contexto_flujos
+            )
+        
+        elif diagrama.titulo == "Diagrama de Componente C4":
+            diagramas_secuencia = Artefacto.objects.filter(
+                proyecto=proyecto,
+                titulo__startswith="Diagrama de secuencia"
+            ).order_by('id')
+            
+            contexto_secuencias = "\n---\n".join([f"## {d.titulo}\n{d.contenido}" for d in diagramas_secuencia]) if diagramas_secuencia else "No hay diagramas"
+            
+            diagrama_er = Artefacto.objects.filter(
+                proyecto=proyecto,
+                titulo="Diagrama de Entidad-Relacion"
+            ).first()
+            
+            contexto_er = diagrama_er.contenido if diagrama_er else "No disponible"
+            
+            contenido = generar_subartefacto_con_prompt(
+                tipo=diagrama.titulo,
+                diagramas_secuencia=contexto_secuencias,
+                diagrama_er=contexto_er
+            )
+        
+        elif diagrama.titulo == "Diagrama de Despliegue C4":
+            requisitos_art = artefactos.filter(titulo__in=["Requisitos"]).first()
+            if not requisitos_art:
+                requisitos_art = artefactos.filter(titulo__startswith="Requisitos -").first()
+            
+            requisitos_texto = requisitos_art.contenido if requisitos_art else "No hay requisitos"
+            
+            contexto_c4 = f"""HISTORIAS DE USUARIO:
+{hu.contenido if hu else 'No disponible'}
+
+REQUISITOS FUNCIONALES:
+{requisitos_texto}
+
+NOTAS: Basado en los requisitos anteriores, diseña la infraestructura de despliegue necesaria."""
+            
+            contenido = generar_subartefacto_con_prompt(
+                tipo=diagrama.titulo,
+                texto=contexto_c4
+            )
+        
+        else:
+            raise ValueError(f"Tipo de diagrama C4 no reconocido: {diagrama.titulo}")
+        
+        contenido = limpiar_mermaid(contenido)
+        diagrama.contenido = contenido
+        diagrama.save()
+        
+        messages.success(request, f"✅ {diagrama.titulo} regenerado correctamente")
+        return redirect('ver_diagramas_c4', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    except Exception as e:
+        print(f"[ERROR] Regenerando diagrama C4 {artefacto_id}: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        messages.error(request, f"❌ Error al regenerar: {str(e)}")
+        return redirect('ver_diagramas_c4', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]

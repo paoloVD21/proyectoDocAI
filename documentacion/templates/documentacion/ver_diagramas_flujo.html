@@ -58,8 +58,12 @@
 
     <!-- Información de conteo -->
     <div class="alert alert-info mb-4" role="alert">
-        <i class="bi bi-info-circle"></i>
-        Se han generado <strong>{{ cantidad_diagramas }}</strong> diagrama(s) de flujo, uno por cada Historia de Usuario.
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <strong>ℹ️ Se han generado <strong>{{ cantidad_diagramas }}</strong> diagrama(s) de flujo, uno por cada Historia de Usuario.</strong>
+                <small class="d-block mt-2 text-dark"><strong>⚠️ Nota:</strong> Si algún diagrama presenta errores de generación, por favor utiliza los botones "🔄 Regenerar con IA" o "🔄 Regenerar Todos" para intentar generarlos nuevamente.</small>
+            </div>
+        </div>
     </div>
 
     <!-- Tabbed Interface -->
