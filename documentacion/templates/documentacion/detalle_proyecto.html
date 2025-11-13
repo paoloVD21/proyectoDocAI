@@ -120,10 +120,10 @@
                                             <!-- Si ya existen diagramas de flujo, ir directamente a verlos; si no, generar -->
                                             {% if diagrama_flujo_generado %}
                                                 <a href="{% url 'ver_diagramas_flujo' proyecto.id %}" 
-                                                   class="btn btn-sm btn-outline-success w-100 text-truncate"
+                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
                                                    title="Ver Diagramas de Flujo generados"
                                                    style="border-radius: 10px; font-size: 0.7rem;">
-                                                    👁️ {{ sub.nombre }}
+                                                    {{ sub.nombre }}
                                                 </a>
                                             {% else %}
                                                 <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
@@ -161,6 +161,31 @@
                                         {% else %}
                                             <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
                                                 title="Completa Análisis primero: HU + Requisitos"
+                                                style="border-radius: 10px; font-size: 0.7rem;">
+                                                🚫 {{ sub.nombre }}
+                                            </button>
+                                        {% endif %}
+                                    {% elif sub.nombre == "Diagrama de Entidad-Relacion" %}
+                                        {% if caso_uso_con_requisitos and requisitos_generados and requisitos_existe and ambos_diagramas_base_generados %}
+                                            <!-- Si ya existe diagrama ER, ir directamente a verlo; si no, generar -->
+                                            {% if diagrama_entidad_relacion_generado %}
+                                                <a href="{% url 'ver_diagrama_entidad_relacion' proyecto.id %}" 
+                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                                   title="Ver Diagrama de Entidad-Relacion generado"
+                                                   style="border-radius: 10px; font-size: 0.7rem;">
+                                                    {{ sub.nombre }}
+                                                </a>
+                                            {% else %}
+                                                <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
+                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                                   title="Generar Diagrama de Entidad-Relacion"
+                                                   style="border-radius: 10px; font-size: 0.7rem;">
+                                                    {{ sub.nombre }}
+                                                </a>
+                                            {% endif %}
+                                        {% else %}
+                                            <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
+                                                title="{% if ambos_diagramas_base_generados %}Completa Análisis primero: HU + Requisitos{% else %}Primero genera Diagrama de Flujo y Diagrama de Secuencia{% endif %}"
                                                 style="border-radius: 10px; font-size: 0.7rem;">
                                                 🚫 {{ sub.nombre }}
                                             </button>
@@ -306,5 +331,15 @@
         border-bottom: none !important;
     }
 </style>
+
+<script>
+    // Forzar recarga sin cache cuando vuelves de generar un diagrama
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            // Si la página fue restaurada del cache (back button), recargar sin cache
+            window.location.reload(true);
+        }
+    });
+</script>
 
 {% endblock %}

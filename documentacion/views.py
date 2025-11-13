@@ -248,10 +248,10 @@ def detalle_proyecto(request, proyecto_id):
         titulo__startswith="Requisitos -"
     ).exists()
     
-    # Verificar si ya se generó el diagrama de flujo
+    # Verificar si ya se generó el diagrama de flujo (por HU)
     diagrama_flujo_generado = Artefacto.objects.filter(
         proyecto=proyecto,
-        titulo="Diagrama de flujo"
+        titulo__startswith="Diagrama de flujo"
     ).exists()
     
     # Verificar si ya se generó el diagrama de secuencia (por HU)
@@ -260,19 +260,31 @@ def detalle_proyecto(request, proyecto_id):
         titulo__startswith="Diagrama de secuencia"
     ).exists()
     
-    # Verificar si se generaron todos los diagramas de Diseño
-    diagramas_diseño = [
-        "Diagrama de flujo",
-        "Diagrama de secuencia",
-        "Diagrama de Entidad-Relacion"
-    ]
+    # Verificar si ya se generó el diagrama de entidad-relacion
+    diagrama_entidad_relacion_generado = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo="Diagrama de Entidad-Relacion"
+    ).exists()
     
-    todos_diagramas_diseño = all(
+    # Verificar que ambos diagramas base existan para desbloquear Entidad-Relación
+    # (Diagrama de Entidad-Relación depende de Flujo y Secuencia)
+    ambos_diagramas_base_generados = diagrama_flujo_generado and diagrama_secuencia_generado
+    
+    # Verificar si se generaron todos los diagramas de Diseño
+    # Para diagramas que se generan por HU (flujo y secuencia), usar startswith
+    todos_diagramas_diseño = (
         Artefacto.objects.filter(
             proyecto=proyecto,
-            titulo=diagrama
+            titulo__startswith="Diagrama de flujo"
+        ).exists() and
+        Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__startswith="Diagrama de secuencia"
+        ).exists() and
+        Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo="Diagrama de Entidad-Relacion"
         ).exists()
-        for diagrama in diagramas_diseño
     )
     
     # Verificar que Requisitos siga existiendo (validación crítica)
@@ -319,6 +331,8 @@ def detalle_proyecto(request, proyecto_id):
         'requisitos_por_hu': requisitos_por_hu,
         'diagrama_flujo_generado': diagrama_flujo_generado,
         'diagrama_secuencia_generado': diagrama_secuencia_generado,
+        'diagrama_entidad_relacion_generado': diagrama_entidad_relacion_generado,
+        'ambos_diagramas_base_generados': ambos_diagramas_base_generados,
         'todos_diagramas_diseño': todos_diagramas_diseño_validos,
         'fases_desbloqueadas': fases_desbloqueadas
     })
@@ -476,6 +490,8 @@ def editar_artefacto(request, artefacto_id):
                 return redirect('ver_diagramas_flujo', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
             elif "Diagrama de secuencia" in artefacto.titulo:
                 return redirect('ver_diagramas_secuencia', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
+            elif "Diagrama de Entidad-Relacion" in artefacto.titulo:
+                return redirect('ver_diagrama_entidad_relacion', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
             elif "Requisitos" in artefacto.titulo:
                 return redirect('ver_requisitos', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
             else:
@@ -748,6 +764,126 @@ def ver_diagramas_secuencia(request, proyecto_id):
         'cantidad_diagramas': len(diagramas),
         'requisitos_dict': requisitos_dict,
     })
+
+
+@login_required
+def ver_diagrama_entidad_relacion(request, proyecto_id):
+    """
+    Vista que muestra el Diagrama de Entidad-Relacion generado para un proyecto.
+    Es un diagrama único que considera todo el contexto del proyecto.
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    # Obtener el diagrama ER
+    diagrama = Artefacto.objects.filter(
+        proyecto=proyecto,
+        titulo="Diagrama de Entidad-Relacion"
+    ).first()
+    
+    if not diagrama:
+        messages.warning(request, "⚠️ No se ha generado el Diagrama de Entidad-Relacion aún.")
+        return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    return render(request, 'documentacion/ver_diagrama_entidad_relacion.html', {
+        'proyecto': proyecto,
+        'diagrama': diagrama,
+    })
+
+
+@login_required
+def regenerar_diagrama_entidad_relacion(request, proyecto_id):
+    """
+    Vista para REGENERAR el Diagrama de Entidad-Relacion con contexto actualizado.
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    try:
+        diagrama = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo="Diagrama de Entidad-Relacion"
+        ).first()
+        
+        if not diagrama:
+            messages.error(request, "❌ El Diagrama de Entidad-Relacion no existe")
+            return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        artefactos = Artefacto.objects.filter(proyecto=proyecto)
+        hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
+        
+        if not hu:
+            messages.error(request, "❌ No se encontró la Historia de Usuario")
+            return redirect('ver_diagrama_entidad_relacion', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # Buscar requisitos
+        requisitos_art = artefactos.filter(
+            titulo__in=["Requisitos"]
+        ).first()
+        
+        if not requisitos_art:
+            requisitos_art = artefactos.filter(
+                titulo__startswith="Requisitos -"
+            ).first()
+        
+        # Recopilar todos los diagramas de flujo
+        diagramas_flujo = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__startswith="Diagrama de flujo"
+        ).order_by('id')
+        
+        # Recopilar todos los diagramas de secuencia
+        diagramas_secuencia = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__startswith="Diagrama de secuencia"
+        ).order_by('id')
+        
+        # Construir contexto completo
+        contexto_flujos = "\n---\n".join([f"## {d.titulo}\n{d.contenido}" for d in diagramas_flujo]) if diagramas_flujo else "No hay diagramas de flujo"
+        contexto_secuencias = "\n---\n".join([f"## {d.titulo}\n{d.contenido}" for d in diagramas_secuencia]) if diagramas_secuencia else "No hay diagramas de secuencia"
+        
+        # Construir el contexto de requisitos
+        requisitos_texto = requisitos_art.contenido if requisitos_art else "No hay requisitos"
+        
+        # Construir el contexto de historias de usuario con diagramas
+        historias_completo = f"""
+{hu.contenido}
+
+DIAGRAMAS DE FLUJO (Procesos del Sistema):
+{contexto_flujos}
+
+DIAGRAMAS DE SECUENCIA (Interacciones del Sistema):
+{contexto_secuencias}
+"""
+        
+        # DEBUG: Mostrar qué se está enviando a la IA (REGENERACIÓN)
+        print(f"[DEBUG ER - REGEN] Regenerando Diagrama de Entidad-Relacion con contexto:")
+        print(f"[DEBUG ER - REGEN] HU: {len(hu.contenido)} caracteres")
+        print(f"[DEBUG ER - REGEN] Requisitos: {len(requisitos_texto)} caracteres")
+        print(f"[DEBUG ER - REGEN] Diagramas de Flujo: {len(contexto_flujos)} caracteres ({len(list(diagramas_flujo))} diagramas)")
+        print(f"[DEBUG ER - REGEN] Diagramas de Secuencia: {len(contexto_secuencias)} caracteres ({len(list(diagramas_secuencia))} diagramas)")
+        print(f"[DEBUG ER - REGEN] Total: {len(historias_completo) + len(requisitos_texto)} caracteres")
+        
+        # Regenerar el diagrama ER con los parámetros correctos
+        contenido_diagrama = generar_subartefacto_con_prompt(
+            tipo="Diagrama de Entidad-Relacion",
+            historias_usuario=historias_completo,
+            requisitos=requisitos_texto
+        )
+        
+        contenido_diagrama = limpiar_mermaid(contenido_diagrama)
+        
+        # Actualizar el diagrama existente
+        diagrama.contenido = contenido_diagrama
+        diagrama.save()
+        
+        messages.success(request, "✅ Diagrama de Entidad-Relacion regenerado exitosamente con contexto actualizado.")
+        
+    except Exception as e:
+        import traceback
+        print(f"[ERROR] Regenerando diagrama ER: {str(e)}")
+        print(traceback.format_exc())
+        messages.error(request, f"❌ Error al regenerar: {str(e)}")
+    
+    return redirect('ver_diagrama_entidad_relacion', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
 
 
 @login_required
@@ -1616,6 +1752,92 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
             # Redireccionar a vista de diagramas de secuencia
             messages.success(request, f"✅ Se generaron {diagramas_creados} Diagrama(s) de Secuencia (uno por cada Historia de Usuario)")
             return redirect('ver_diagramas_secuencia', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        elif subartefacto.nombre == "Diagrama de Entidad-Relacion":
+            # ✨ ESPECIAL: UN SOLO DIAGRAMA ER con contexto completo del proyecto
+            # Primero verificar si ya existe
+            diagrama_er_existente = Artefacto.objects.filter(
+                proyecto=proyecto,
+                titulo="Diagrama de Entidad-Relacion"
+            ).first()
+            
+            if diagrama_er_existente:
+                # Si ya existe, solo redirigir a verlo
+                messages.info(request, "ℹ️ El Diagrama de Entidad-Relacion ya existe.")
+                return redirect('ver_diagrama_entidad_relacion', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+            
+            assert hu is not None, "Historia de Usuario no encontrada"
+            
+            # Buscar requisitos
+            requisitos_art = artefactos.filter(
+                titulo__in=["Requisitos"]
+            ).first()
+            
+            if not requisitos_art:
+                requisitos_art = artefactos.filter(
+                    titulo__startswith="Requisitos -"
+                ).first()
+            
+            # Recopilar todos los diagramas de flujo
+            diagramas_flujo = Artefacto.objects.filter(
+                proyecto=proyecto,
+                titulo__startswith="Diagrama de flujo"
+            ).order_by('id')
+            
+            # Recopilar todos los diagramas de secuencia
+            diagramas_secuencia = Artefacto.objects.filter(
+                proyecto=proyecto,
+                titulo__startswith="Diagrama de secuencia"
+            ).order_by('id')
+            
+            # Construir contexto completo
+            contexto_flujos = "\n---\n".join([f"## {d.titulo}\n{d.contenido}" for d in diagramas_flujo]) if diagramas_flujo else "No hay diagramas de flujo"
+            contexto_secuencias = "\n---\n".join([f"## {d.titulo}\n{d.contenido}" for d in diagramas_secuencia]) if diagramas_secuencia else "No hay diagramas de secuencia"
+            
+            # Construir el contexto de requisitos
+            requisitos_texto = requisitos_art.contenido if requisitos_art else "No hay requisitos"
+            
+            # Construir el contexto de historias de usuario con diagramas
+            historias_completo = f"""
+{hu.contenido}
+
+DIAGRAMAS DE FLUJO (Procesos del Sistema):
+{contexto_flujos}
+
+DIAGRAMAS DE SECUENCIA (Interacciones del Sistema):
+{contexto_secuencias}
+"""
+            
+            # DEBUG: Mostrar qué se está enviando a la IA
+            print(f"[DEBUG ER] Generando Diagrama de Entidad-Relacion con contexto:")
+            print(f"[DEBUG ER] HU: {len(hu.contenido)} caracteres")
+            print(f"[DEBUG ER] Requisitos: {len(requisitos_texto)} caracteres")
+            print(f"[DEBUG ER] Diagramas de Flujo: {len(contexto_flujos)} caracteres ({len(list(diagramas_flujo))} diagramas)")
+            print(f"[DEBUG ER] Diagramas de Secuencia: {len(contexto_secuencias)} caracteres ({len(list(diagramas_secuencia))} diagramas)")
+            print(f"[DEBUG ER] Total: {len(historias_completo) + len(requisitos_texto)} caracteres")
+            
+            # Generar el diagrama ER con los parámetros correctos
+            contenido_diagrama = generar_subartefacto_con_prompt(
+                tipo="Diagrama de Entidad-Relacion",
+                historias_usuario=historias_completo,
+                requisitos=requisitos_texto
+            )
+            
+            contenido_diagrama = limpiar_mermaid(contenido_diagrama)
+            
+            # Crear UN SOLO artefacto con el diagrama ER
+            Artefacto.objects.create(
+                proyecto=proyecto,
+                fase=subartefacto.fase,
+                subartefacto=subartefacto,
+                titulo="Diagrama de Entidad-Relacion",
+                contenido=contenido_diagrama,
+                generado_por_ia=True
+            )
+            
+            messages.success(request, "✅ Diagrama de Entidad-Relacion generado correctamente con contexto completo del proyecto.")
+            return redirect('ver_diagrama_entidad_relacion', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
         else:
             # Para otros diagramas: usa Historia de Usuario
             assert hu is not None, "Historia de Usuario no encontrada"

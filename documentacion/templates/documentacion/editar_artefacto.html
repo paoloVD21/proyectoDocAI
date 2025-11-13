@@ -41,6 +41,8 @@
                         <a href="{% url 'ver_diagramas_flujo' artefacto.proyecto.id %}" class="btn btn-outline-danger btn-sm">❌ Cancelar</a>
                     {% elif 'Diagrama de secuencia' in artefacto.titulo %}
                         <a href="{% url 'ver_diagramas_secuencia' artefacto.proyecto.id %}" class="btn btn-outline-danger btn-sm">❌ Cancelar</a>
+                    {% elif 'Diagrama de Entidad-Relacion' in artefacto.titulo %}
+                        <a href="{% url 'ver_diagrama_entidad_relacion' artefacto.proyecto.id %}" class="btn btn-outline-danger btn-sm">❌ Cancelar</a>
                     {% elif 'Requisitos' in artefacto.titulo %}
                         <a href="{% url 'ver_requisitos' artefacto.proyecto.id %}" class="btn btn-outline-danger btn-sm">❌ Cancelar</a>
                     {% else %}

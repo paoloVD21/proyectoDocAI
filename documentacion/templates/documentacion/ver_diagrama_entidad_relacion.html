@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Diagrama de Entidad-Relacion | {{ proyecto.nombre }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/artefactos.css' %}">
+<style>
+    .diagrama-card {
+        border-left: 4px solid #6f42c1;
+        transition: all 0.3s ease;
+    }
+    .diagrama-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .diagrama-header {
+        background: linear-gradient(135deg, #6f42c1 0%, #9966ff 100%);
+        color: white;
+    }
+    .mermaid-container {
+        max-height: 700px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 15px;
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Notificaciones Flotantes (Sticky) -->
+{% if messages %}
+<div style="position: fixed; bottom: 20px; right: 20px; width: 350px; z-index: 1000; max-height: 60vh; overflow-y: auto;">
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="border-radius: 10px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="container mt-4">
+    <!-- Header con Botones de Acciones -->
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h2 class="mb-0" style="color: #6f42c1;">🗂️ Diagrama de Entidad-Relacion</h2>
+                <p class="text-muted mt-2">Proyecto: <strong>{{ proyecto.nombre }}</strong></p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'detalle_proyecto' proyecto.id %}" class="btn btn-outline-success">← Regresar</a>
+                <a href="{% url 'regenerar_diagrama_entidad_relacion' proyecto.id %}" class="btn btn-outline-warning">🔄 Regenerar</a>
+            </div>
+        </div>
+
+        <!-- Botones de Acciones (Superior) -->
+        {% if diagrama %}
+        <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-sm btn-primary btn-descargar" data-diagrama-id="{{ diagrama.id }}" data-formato="svg" title="Descargar como SVG">
+                <i class="bi bi-download"></i> SVG
+            </button>
+            <button type="button" class="btn btn-sm btn-primary btn-descargar" data-diagrama-id="{{ diagrama.id }}" data-formato="jpg" title="Descargar como JPG">
+                <i class="bi bi-download"></i> JPG
+            </button>
+            <a href="{% url 'descargar_diagrama' diagrama.id %}" class="btn btn-sm btn-primary" title="Descargar como Mermaid">
+                <i class="bi bi-download"></i> MMD
+            </a>
+            <a href="{% url 'editar_artefacto' diagrama.id %}" class="btn btn-sm btn-warning" title="Editar diagrama">
+                <i class="bi bi-pencil-square"></i> Editar
+            </a>
+            <a href="{% url 'eliminar_artefacto' diagrama.id %}" class="btn btn-sm btn-danger" onclick="return confirm('⚠️ ¿Está seguro? Se eliminará el Diagrama de Entidad-Relacion.\n\nEsta acción NO se puede deshacer.')" title="Eliminar diagrama">
+                <i class="bi bi-trash3"></i> Eliminar
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Diagrama ER -->
+    {% if diagrama %}
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card diagrama-card h-100">
+                <!-- Header -->
+                <div class="diagrama-header p-3">
+                    <h5 class="mb-0">{{ diagrama.titulo }}</h5>
+                </div>
+
+                <!-- Cuerpo del diagrama -->
+                <div class="card-body">
+                    <!-- Mermaid Diagram -->
+                    <div class="mermaid-container mb-3">
+                        <div class="mermaid" data-diagrama-id="{{ diagrama.id }}">
+                            {{ diagrama.contenido|safe }}
+                        </div>
+                    </div>
+
+                    <!-- Metadatos -->
+                    <div class="text-muted small mt-3 pt-3 border-top">
+                        <p class="mb-1">📅 Creado: {{ diagrama.creado|date:"d/m/Y H:i" }}</p>
+                        <p class="mb-0">✏️ Actualizado: {{ diagrama.actualizado|date:"d/m/Y H:i" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i>
+        No se encontró el Diagrama de Entidad-Relacion.
+    </div>
+    {% endif %}
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script>
+    function descargarDiagrama(diagramaId, formato) {
+        // Buscar el contenedor del diagrama
+        const card = document.querySelector(`.card:has([data-diagrama-id="${diagramaId}"])`);
+        if (!card) {
+            alert('No se encontró el diagrama');
+            return;
+        }
+        
+        const mermaidDiv = card.querySelector(`[data-diagrama-id="${diagramaId}"]`);
+        const titulo = card.querySelector('.diagrama-header h5').textContent.trim();
+        
+        if (formato === 'svg') {
+            // Descargar como SVG
+            const svg = mermaidDiv.querySelector('svg');
+            if (svg) {
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const blob = new Blob([svgData], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${titulo.replace(/\s+/g, '_')}.svg`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }
+        } else if (formato === 'jpg') {
+            // Descargar como JPG
+            try {
+                const svg = mermaidDiv.querySelector('svg');
+                if (!svg) {
+                    alert('❌ No se encontró el SVG renderizado.');
+                    return;
+                }
+
+                let svgString = new XMLSerializer().serializeToString(svg);
+
+                if (!svgString.includes('xmlns="http://www.w3.org/2000/svg"')) {
+                    svgString = svgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+                }
+
+                const svgBase64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width * 3;
+                    canvas.height = img.height * 3;
+                    const ctx = canvas.getContext('2d');
+
+                    // Fondo blanco para JPG
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    // Exportar como JPG
+                    canvas.toBlob((blob) => {
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = `${titulo.replace(/\s+/g, '_')}.jpg`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(a.href);
+                    }, 'image/jpeg', 0.95);
+                };
+
+                img.onerror = function() {
+                    alert('❌ Error al cargar el SVG como imagen.');
+                };
+
+                img.src = svgBase64;
+
+            } catch (error) {
+                alert('❌ Error inesperado al exportar a JPG.');
+                console.error(error);
+            }
+        }
+    }
+
+    // Variable para evitar duplicación de listeners
+    if (!window.diagramasListenersAdded) {
+        window.diagramasListenersAdded = true;
+        
+        // Manejadores de descargas
+        document.querySelectorAll('.btn-descargar').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const diagramaId = this.dataset.diagramaId;
+                const formato = this.dataset.formato;
+                descargarDiagrama(parseInt(diagramaId), formato);
+            });
+        });
+
+        // Inicializar Mermaid
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            deterministicIds: true
+        });
+        
+        mermaid.contentLoaded();
+    }
+</script>
+{% endblock %}
+
+{% endblock %}

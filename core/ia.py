@@ -74,6 +74,7 @@ PROMPTS = {
         f"Historias de Usuario:\n{historias_usuario}\n\n"
         f"Requisitos Funcionales:\n{requisitos}\n\n"
         "Indicaciones claras para la generación:\n"
+        "- IMPORTANTE: Los verbos de las relaciones deben ser una sola palabra en infinitivo.\n\n"
         "- Analiza las historias de usuario y requisitos para identificar las entidades principales y sus relaciones.\n"
         "- Cada requisito funcional debe estar reflejado en las entidades y sus atributos.\n"
         "- Usa la palabra clave erDiagram para iniciar el diagrama.\n"
@@ -85,6 +86,7 @@ PROMPTS = {
         "- Usa nombres de entidades en mayúsculas y sin espacios ni caracteres especiales.\n"
         "- Asegura que cada entidad tenga los atributos necesarios para cumplir los requisitos.\n"
         "- Devuelve solo el bloque de código completo en Mermaid, sin explicaciones ni texto adicional.\n\n"
+    
         "Ejemplo:\n"
         "erDiagram\n"
         "    CLIENTE {\n"
