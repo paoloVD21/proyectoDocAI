@@ -76,7 +76,9 @@ ARTEFACTOS_MERMAID = [
     "Diagrama de estado",
     "Diagrama de C4-contexto",
     "Diagrama de C4-contenedor",
-    "Diagrama de C4-implementación"
+    "Diagrama de C4-implementación",
+    "Diagrama de C4-dinámico",
+    "Diagrama de C4-componente"
 ]
 
 ARTEFACTOS_VALIDOS = set(ARTEFACTOS_TEXTO + ARTEFACTOS_MERMAID)
@@ -113,7 +115,7 @@ def crear_proyecto(request):
                 "Análisis": ["Historia de Usuario", "Requisitos"],
                 "Diseño": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de Entidad-Relacion"],
                 "Pruebas": ["caja negra"],
-                "Despliegue": ["Diagrama de C4-contexto", "Diagrama de C4-contenedor", "Diagrama de C4-implementación"]
+                "Despliegue": ["Diagrama de Contexto C4", "Diagrama de Contenedor C4", "Diagrama de Componente C4", "Diagrama de Despliegue C4"]
             }
 
             for nombre_fase, subartefactos in fases_con_subartefactos.items():
@@ -222,7 +224,7 @@ def detalle_proyecto(request, proyecto_id):
         "Análisis": ["Historia de Usuario", "Requisitos"],
         "Diseño": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de Entidad-Relacion"],
         "Pruebas": ["caja negra"],
-        "Despliegue": ["Diagrama de C4-contexto", "Diagrama de C4-contenedor", "Diagrama de C4-implementación"]
+        "Despliegue": ["Diagrama de Contexto C4", "Diagrama de Contenedor C4", "Diagrama de Componente C4", "Diagrama de Despliegue C4"]
     }
 
     for fase in fases:

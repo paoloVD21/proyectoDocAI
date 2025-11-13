@@ -227,7 +227,7 @@ PROMPTS = {
         "    Usuario-->>VistaATM: Retirar tarjeta (fin)\n"
     ),
 
-    "Diagrama de C4-contexto": lambda texto: (
+    "Diagrama de Contexto C4": lambda texto: (
         "Genera un diagrama C4 de tipo contexto (c4Context) en sintaxis Mermaid basado en la siguiente descripción del sistema:\n\n"
         f"{texto}\n\n"
         "Sigue cuidadosamente estas indicaciones para la sintaxis del diagrama Mermaid:\n\n"
@@ -294,7 +294,7 @@ PROMPTS = {
         "    UpdateLayoutConfig($c4ShapeInRow=\"3\", $c4BoundaryInRow=\"1\")"
     ),
     
-    "Diagrama de C4-contenedor": lambda texto: (
+    "Diagrama de Contenedor C4": lambda texto: (
         "Genera un diagrama C4 de tipo contenedor (C4Container) en sintaxis Mermaid basado en la siguiente descripción del sistema:\n\n"
         f"{texto}\n\n"
         "Sigue cuidadosamente estas indicaciones para la sintaxis del diagrama Mermaid:\n\n"
@@ -363,7 +363,7 @@ PROMPTS = {
         "    UpdateRelStyle(backend_api, banking_system, $offsetY=\"-50\", $offsetX=\"-140\")"
     ),
 
-    "Diagrama de C4-implementación": lambda texto: (
+    "Diagrama de Despliegue C4": lambda texto: (
         "Genera un diagrama C4 de tipo implementación (C4Deployment) en sintaxis Mermaid basado en la siguiente descripción del sistema:\n\n"
         f"{texto}\n\n"
         "Sigue cuidadosamente estas indicaciones para la sintaxis del diagrama Mermaid:\n\n"
@@ -438,6 +438,56 @@ PROMPTS = {
         "    UpdateRelStyle(db, db2, $offsetY=\"-10\")"
     ),
 
+    "Diagrama de Componente C4": lambda texto: (
+        "Genera un diagrama C4 de componentes (C4Component) en sintaxis Mermaid basado en la siguiente descripción del sistema:\n\n"
+        f"{texto}\n\n"
+        "Sigue cuidadosamente estas indicaciones para la sintaxis del diagrama Mermaid:\n\n"
+        "- Comienza el código con:\n"
+        "  C4Component\n\n"
+        "- Trata de sea en español las especificaciones y descripciones\n"
+        "- Los diagramas deben mostrar los componentes internos de un contenedor\n\n"
+        "Estructura y elementos obligatorios:\n"
+        "- Usa Component(alias, nombre, tecnología, descripción) para componentes.\n"
+        "- Usa ComponentDb(alias, nombre, tecnología, descripción) para componentes de base de datos.\n"
+        "- Usa Component_Ext(alias, nombre, tecnología, descripción) para componentes externos.\n"
+        "- Usa ComponentDb_Ext(alias, nombre, tecnología, descripción) para componentes de BD externos.\n"
+        "- Usa Container_Boundary(alias, nombre) para agrupar componentes dentro del contenedor.\n"
+        "- Usa System(alias, nombre, descripción) para sistemas externos.\n"
+        "- Usa Person(alias, nombre, descripción) para actores.\n\n"
+        "Relaciones:\n"
+        "- Usa Rel(origen, destino, etiqueta, protocolo) para relaciones entre componentes.\n"
+        "- Usa BiRel(origen, destino, etiqueta, protocolo) para relaciones bidireccionales.\n"
+        "- Usa Rel_Back(origen, destino, etiqueta, protocolo) para relaciones inversas.\n\n"
+        "Estilos personalizados:\n"
+        "- Usa UpdateElementStyle(alias, $fontColor=\"\", $bgColor=\"\", $borderColor=\"\") para personalizar elementos.\n"
+        "- Usa UpdateRelStyle(origen, destino, $textColor=\"\", $lineColor=\"\", $offsetX=\"\", $offsetY=\"\") para personalizar relaciones.\n"
+        "- Usa UpdateLayoutConfig($c4ShapeInRow=\"\", $c4BoundaryInRow=\"\") para controlar la distribución.\n\n"
+        "Devuelve solo el código Mermaid. No uses la palabra 'mermaid', comillas ni backticks.\n\n"
+        "Ejemplo:\n"
+        "C4Component\n"
+        "    title Component diagram for Internet Banking System - API Application\n\n"
+        "    Person(customer, \"Customer\", \"A customer of the bank.\")\n"
+        "    System_Ext(mailSystem, \"E-mail system\", \"The internal Microsoft Exchange system.\")\n"
+        "    SystemDb_Ext(mainframeSystem, \"Mainframe Banking System\", \"Stores all of the core banking information.\")\n\n"
+        "    Container_Boundary(c1, \"API Application\") {\n"
+        "        Component(signInController, \"Sign In Controller\", \"Spring MVC Controller\", \"Permite al usuario autenticarse en el sistema.\")\n"
+        "        Component(accountController, \"Account Controller\", \"Spring MVC Controller\", \"Proporciona funcionalidades de cuenta de usuario.\")\n"
+        "        Component(securityComponent, \"Security Component\", \"Spring Security\", \"Proporciona funcionalidades de seguridad incluyendo autenticación.\")\n"
+        "        ComponentDb(userDb, \"User Database\", \"SQL Database\", \"Stores user information, hashed passwords, email, etc.\")\n"
+        "        Component(mainframeGateway, \"Mainframe Gateway\", \"Spring Integration\", \"Una puerta de enlace para integración con el sistema mainframe.\")\n"
+        "        Component(emailComponent, \"E-mail Component\", \"Spring Integration\", \"Proporciona funcionalidades de envío de correo electrónico.\")\n"
+        "    }\n\n"
+        "    Rel(customer, signInController, \"Uses\", \"HTTPS\")\n"
+        "    Rel(signInController, securityComponent, \"Uses\")\n"
+        "    Rel(securityComponent, userDb, \"Reads from and writes to\", \"JDBC\")\n"
+        "    Rel(customer, accountController, \"Uses\", \"HTTPS\")\n"
+        "    Rel(accountController, mainframeGateway, \"Uses\")\n"
+        "    Rel(mainframeGateway, mainframeSystem, \"Uses\", \"XML/HTTPS\")\n"
+        "    Rel(securityComponent, emailComponent, \"Uses\")\n"
+        "    Rel(emailComponent, mailSystem, \"Sends e-mails using\", \"SMTP\")\n\n"
+        "    UpdateElementStyle(signInController, $fontColor=\"black\", $bgColor=\"#08427B\")\n"
+        "    UpdateElementStyle(accountController, $fontColor=\"black\", $bgColor=\"#08427B\")\n"
+    ),
 
     "caja_negra": lambda requisito_funcional, diagrama_flujo=None, historia_usuario=None: (
     "Eres un ingeniero de software experto en aseguramiento de calidad (QA) especializado "
