@@ -14,6 +14,7 @@ urlpatterns = [
     path('proyecto/<int:proyecto_id>/eliminar/', views.eliminar_proyecto, name='eliminar_proyecto'),#eliminar proyecto
     path('proyecto/<int:proyecto_id>/artefacto/nuevo/', views.crear_artefacto, name='crear_artefacto'),# crear artefacto
     path('ver_artefacto/<int:artefacto_id>/', views.ver_artefacto, name='ver_artefacto'), #ver el artefacto
+    path('ver_historias_usuario/<int:artefacto_id>/', views.ver_historias_usuario, name='ver_historias_usuario'), #ver historias de usuario
     path('artefacto/editar/<int:artefacto_id>/', views.editar_artefacto, name='editar_artefacto'),# editar artefacto
     path('logout/', views.cerrar_sesion, name='logout'),  # Importante para cerrar sesión
     path('proyecto/<int:proyecto_id>/generar/<str:subartefacto_nombre>/', views.generar_artefacto, name='generar_artefacto'),#generar artefactos

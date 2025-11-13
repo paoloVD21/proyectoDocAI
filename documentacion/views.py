@@ -514,6 +514,8 @@ def editar_artefacto(request, artefacto_id):
                 return redirect('ver_diagrama_entidad_relacion', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
             elif "Requisitos" in artefacto.titulo:
                 return redirect('ver_requisitos', proyecto_id=artefacto.proyecto.id) # pyright: ignore[reportAttributeAccessIssue]
+            elif "Historia de Usuario" in artefacto.titulo:
+                return redirect('ver_historias_usuario', artefacto_id=artefacto.id) # pyright: ignore[reportAttributeAccessIssue]
             else:
                 return redirect('ver_artefacto', artefacto_id=artefacto.id) # pyright: ignore[reportAttributeAccessIssue]
         else:
@@ -580,6 +582,22 @@ def ver_artefacto(request, artefacto_id):
         'is_mermaid': is_mermaid,
         'hu': hu,
         'hu_especifico': hu_especifico,
+    })
+
+
+@login_required
+def ver_historias_usuario(request, artefacto_id):
+    """Vista especializada para mostrar Historias de Usuario"""
+    artefacto = get_object_or_404(Artefacto, id=artefacto_id, proyecto__propietario=request.user)
+    proyecto = artefacto.proyecto
+    
+    # Verificar que sea un artefacto de Historia de Usuario
+    if artefacto.titulo != "Historia de Usuario":
+        return redirect('ver_artefacto', artefacto_id=artefacto_id)
+    
+    return render(request, 'documentacion/ver_historias_usuario.html', {
+        'artefacto': artefacto,
+        'proyecto': proyecto,
     })
 
 
@@ -1362,7 +1380,7 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
         if hu_existente:
             # Si ya existe, solo redirigir a verla
             messages.info(request, "ℹ️ La Historia de Usuario ya existe.")
-            return redirect('ver_artefacto', artefacto_id=hu_existente.id)  # pyright: ignore[reportAttributeAccessIssue]
+            return redirect('ver_historias_usuario', artefacto_id=hu_existente.id)  # pyright: ignore[reportAttributeAccessIssue]
         
         # Si no existe, generarla
         try:
@@ -1468,7 +1486,10 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
             titulo=subartefacto.nombre
         ).first()
         if artefacto_existente:
-            return redirect('ver_artefacto', artefacto_id=artefacto_existente.id)  # pyright: ignore[reportAttributeAccessIssue]
+            if subartefacto.nombre == "Historia de Usuario":
+                return redirect('ver_historias_usuario', artefacto_id=artefacto_existente.id)  # pyright: ignore[reportAttributeAccessIssue]
+            else:
+                return redirect('ver_artefacto', artefacto_id=artefacto_existente.id)  # pyright: ignore[reportAttributeAccessIssue]
 
     try:
         rf_list = []  # Inicializar lista de RF

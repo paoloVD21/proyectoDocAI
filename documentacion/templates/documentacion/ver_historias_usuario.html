@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load template_filters %}
+
+{% block title %}Historias de Usuario | {{ proyecto.nombre }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/artefactos.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Notificaciones Flotantes (Sticky) -->
+    {% if messages %}
+    <div style="position: fixed; bottom: 20px; right: 20px; width: 350px; z-index: 1000; max-height: 60vh; overflow-y: auto;">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="border-radius: 10px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="text-primary mb-0">📖 Historias de Usuario</h2>
+            <p class="text-muted mt-2">Proyecto: <strong>{{ proyecto.nombre }}</strong></p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'detalle_proyecto' proyecto.id %}" class="btn btn-outline-success">← Regresar</a>
+            <a href="{% url 'editar_artefacto' artefacto.id %}" class="btn btn-outline-warning">✏️ Editar</a>
+            <button type="button" class="btn btn-outline-info" onclick="regenerarHU()">♻️ Regenerar con IA</button>
+            <form method="post" action="{% url 'eliminar_artefacto' artefacto.id %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger" onclick="return confirm('⚠️ ¿Está seguro de que desea eliminar las Historias de Usuario?\n\nEsta acción NO se puede deshacer.')">🗑️ Eliminar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Información -->
+    <div class="alert alert-info mb-4" role="alert">
+        <strong>ℹ️ Historias de Usuario Generadas</strong>
+        <p class="mb-0 mt-2">Estas son las historias de usuario generadas para tu proyecto. Puedes editarlas o regenerarlas con IA según sea necesario.</p>
+    </div>
+
+    <!-- Bloque de Historias de Usuario -->
+    {% if artefacto.contenido %}
+    <div class="row">
+        {% for historia in artefacto.contenido|parse_historias %}
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm border-left" style="border-left: 5px solid #0d6efd;">
+                <!-- Header -->
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">📋 Historia de Usuario #{{ forloop.counter }}</h5>
+                </div>
+
+                <!-- Cuerpo -->
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6 class="text-primary mb-2"><strong>Como:</strong></h6>
+                        <p class="card-text bg-light p-3 rounded">{{ historia.como }}</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6 class="text-primary mb-2"><strong>Quiero:</strong></h6>
+                        <p class="card-text bg-light p-3 rounded">{{ historia.quiero }}</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6 class="text-primary mb-2"><strong>Para:</strong></h6>
+                        <p class="card-text bg-light p-3 rounded">{{ historia.para }}</p>
+                    </div>
+
+                    {% if historia.criterios %}
+                    <div class="mt-4">
+                        <h6 class="text-success mb-3"><strong>✓ Criterios de Aceptación:</strong></h6>
+                        <div class="list-group">
+                            {% for criterio in historia.criterios %}
+                            <div class="list-group-item bg-white border">
+                                <span class="badge bg-success me-2">✓</span>{{ criterio }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Metadatos -->
+                <div class="card-footer bg-light">
+                    <small class="text-muted">
+                        📅 Creado: {{ artefacto.creado|date:"d/m/Y H:i" }} | 
+                        ✏️ Actualizado: {{ artefacto.actualizado|date:"d/m/Y H:i" }}
+                    </small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i>
+        No se encontraron historias de usuario. Crea una nueva para comenzar.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function regenerarHU() {
+    if (confirm('⚠️ ¿Desea regenerar las Historias de Usuario con IA?\n\nEsto reemplazará el contenido actual.')) {
+        // Redirige a la página de edición con parámetro para regenerar
+        window.location.href = '{% url "editar_artefacto" artefacto.id %}?regenerar=1';
+    }
+}
+</script>
+{% endblock %}

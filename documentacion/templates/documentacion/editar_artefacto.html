@@ -34,7 +34,7 @@
                 </div>
                 <div class="d-flex justify-content-between">
                     <button type="submit" class="btn btn-outline-success btn-sm">💾 Guardar Cambios</button>
-                    {% if 'Historia de Usuario' in artefacto.titulo or 'Requisitos' in artefacto.titulo %}
+                    {% if 'Historia de Usuario' in artefacto.titulo %}
                         <button type="submit" name="regenerar" value="1" class="btn btn-outline-warning btn-sm">♻️ Regenerar con IA</button>
                     {% endif %}
                     {% if 'C4' in artefacto.titulo %}
@@ -47,6 +47,8 @@
                         <a href="{% url 'ver_diagrama_entidad_relacion' artefacto.proyecto.id %}" class="btn btn-outline-danger btn-sm">❌ Cancelar</a>
                     {% elif 'Requisitos' in artefacto.titulo %}
                         <a href="{% url 'ver_requisitos' artefacto.proyecto.id %}" class="btn btn-outline-danger btn-sm">❌ Cancelar</a>
+                    {% elif 'Historia de Usuario' in artefacto.titulo %}
+                        <a href="{% url 'ver_historias_usuario' artefacto.id %}" class="btn btn-outline-danger btn-sm">❌ Cancelar</a>
                     {% else %}
                         <a href="{% url 'ver_artefacto' artefacto.id %}" class="btn btn-outline-danger btn-sm">❌ Cancelar</a>
                     {% endif %}
