@@ -1,0 +1,414 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pruebas de Caja Negra | {{ proyecto.nombre }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/artefactos.css' %}">
+<style>
+    .prueba-card {
+        border-left: 5px solid #fd7e14;
+        transition: all 0.3s ease;
+        margin-bottom: 20px;
+    }
+    .prueba-card:hover {
+        box-shadow: 0 6px 12px rgba(0,0,0,0.12);
+    }
+    .prueba-header {
+        background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%);
+        color: white;
+        padding: 15px;
+        border-radius: 4px 4px 0 0;
+    }
+    .prueba-body {
+        padding: 15px;
+    }
+    .prueba-field {
+        margin-bottom: 10px;
+    }
+    .field-label {
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 5px;
+        font-size: 0.9rem;
+    }
+    .field-value {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 10px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        line-height: 1.5;
+    }
+    .field-editable {
+        background-color: #ffffff;
+        border: 2px solid #0d6efd;
+    }
+    .field-editable:focus {
+        outline: none;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+    textarea.field-editable {
+        width: 100%;
+        min-height: 50px;
+        max-height: 120px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        resize: vertical;
+    }
+    select.field-editable {
+        width: 100%;
+        padding: 8px;
+    }
+    .estado-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    .estado-pendiente {
+        background-color: #ffc107;
+        color: #000;
+    }
+    .estado-en-ejecucion {
+        background-color: #0d6efd;
+        color: #fff;
+    }
+    .estado-finalizado {
+        background-color: #198754;
+        color: #fff;
+    }
+    .resultado-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    .resultado-apto {
+        background-color: #198754;
+        color: #fff;
+    }
+    .resultado-no-apto {
+        background-color: #dc3545;
+        color: #fff;
+    }
+    .resultado-pendiente {
+        background-color: #6c757d;
+        color: #fff;
+    }
+    .btn-guardar {
+        background-color: #0d6efd;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+    .btn-guardar:hover {
+        background-color: #0b5ed7;
+    }
+    .btn-guardar:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    .spinner-border {
+        display: none;
+        width: 20px;
+        height: 20px;
+        margin-left: 10px;
+    }
+    .spinner-border.show {
+        display: inline-block;
+        border: 3px solid rgba(13, 110, 253, 0.25);
+        border-right-color: #0d6efd;
+        border-radius: 50%;
+        animation: spinner-rotate 0.75s linear infinite;
+    }
+    @keyframes spinner-rotate {
+        to { transform: rotate(360deg); }
+    }
+    .requisito-ref {
+        background-color: #e7f3ff;
+        border-left: 3px solid #0d6efd;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Notificaciones Flotantes -->
+{% if messages %}
+<div style="position: fixed; bottom: 20px; right: 20px; width: 350px; z-index: 1000; max-height: 60vh; overflow-y: auto;">
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="border-radius: 10px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="text-warning mb-0">🧪 Pruebas de Caja Negra</h2>
+            <p class="text-muted mt-2">Proyecto: <strong>{{ proyecto.nombre }}</strong></p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'detalle_proyecto' proyecto.id %}" class="btn btn-outline-success">← Regresar</a>
+            <a href="{% url 'regenerar_pruebas_caja_negra' proyecto.id %}" class="btn btn-outline-info">🔄 Regenerar Todos</a>
+            <a href="{% url 'eliminar_todas_pruebas_caja_negra' proyecto.id %}" class="btn btn-outline-danger" onclick="return confirm('⚠️ ¿Está seguro? Se eliminarán TODAS las pruebas de caja negra.\n\nEsta acción NO se puede deshacer.')">🗑️ Eliminar Todos</a>
+        </div>
+    </div>
+
+    <!-- Información de conteo -->
+    <div class="alert alert-info mb-4" role="alert">
+        <i class="bi bi-info-circle"></i>
+        Se han generado <strong>{{ cantidad_pruebas }}</strong> prueba(s) de caja negra, una por cada Requisito Funcional.
+    </div>
+
+    <!-- Pruebas -->
+    {% if pruebas %}
+    <div class="row">
+        {% for prueba in pruebas %}
+        <div class="col-12 mb-4">
+            <div class="card prueba-card h-100">
+                <!-- Header -->
+                <div class="prueba-header">
+                    <h5 class="mb-0">
+                        PCN{{ prueba.numero_prueba }} - {{ prueba.requisito_id }}
+                        {% if prueba.historia_usuario_relacionada %}
+                        <span class="badge bg-light text-dark">{{ prueba.historia_usuario_relacionada }}</span>
+                        {% endif %}
+                    </h5>
+                </div>
+
+                <!-- Body -->
+                <div class="prueba-body">
+                    <!-- Información de la Historia de Usuario -->
+                    <div class="prueba-field">
+                        <div class="field-label">🆔 Identificador de la Historia de Usuario:</div>
+                        <div class="requisito-ref">
+                            <strong>{{ prueba.requisito_id }}</strong>
+                            {% if prueba.historia_usuario_relacionada %}
+                            [{{ prueba.historia_usuario_relacionada }}]
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="prueba-field">
+                        <div class="field-label">📝 Descripción de la Historia de Usuario:</div>
+                        <div class="field-value">{{ prueba.descripcion_requisito }}</div>
+                    </div>
+
+                    <!-- Requisitos Relacionados -->
+                    {% if prueba.requisitos_relacionados %}
+                    <div class="prueba-field">
+                        <div class="field-label">📋 Requisitos Funcionales Asociados:</div>
+                        <div class="space-y-2">
+                            {% for rf_id, rf_desc in prueba.requisitos_relacionados.items %}
+                            <div class="card card-sm border-info" style="background-color: #f0f7ff; margin-bottom: 8px;">
+                                <div class="card-body p-2">
+                                    <small>
+                                        <strong class="text-info">{{ rf_id }}:</strong> 
+                                        <span class="text-muted">{{ rf_desc }}</span>
+                                    </small>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <hr>
+
+                    <!-- Objetivo -->
+                    <div class="prueba-field">
+                        <div class="field-label">🎯 Objetivo de la Prueba:</div>
+                        <div class="field-value">{{ prueba.objetivo_prueba }}</div>
+                    </div>
+
+                    <!-- Datos de Entrada -->
+                    <div class="prueba-field">
+                        <div class="field-label">📥 Datos de Entrada:</div>
+                        <div class="field-value">{{ prueba.datos_entrada }}</div>
+                    </div>
+
+                    <!-- Procedimiento -->
+                    <div class="prueba-field">
+                        <div class="field-label">🧭 Procedimiento / Pasos:</div>
+                        <div class="field-value" style="white-space: pre-wrap;">{{ prueba.procedimiento }}</div>
+                    </div>
+
+                    <!-- Resultado Esperado -->
+                    <div class="prueba-field">
+                        <div class="field-label">📈 Resultado Esperado:</div>
+                        <div class="field-value">{{ prueba.resultado_esperado }}</div>
+                    </div>
+
+                    <!-- Estado Inicial -->
+                    <div class="row mb-2">
+                        <div class="col-md-6">
+                            <div class="field-label">📅 Estado Inicial:</div>
+                            <select class="field-editable estado-select" data-prueba-id="{{ prueba.id }}" data-field="estado">
+                                <option value="PENDIENTE" {% if prueba.estado == 'PENDIENTE' %}selected{% endif %}>Pendiente</option>
+                                <option value="EN_EJECUCION" {% if prueba.estado == 'EN_EJECUCION' %}selected{% endif %}>En Ejecución</option>
+                                <option value="FINALIZADO" {% if prueba.estado == 'FINALIZADO' %}selected{% endif %}>Finalizado</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Resultado Obtenido (editable) -->
+                    <div class="prueba-field">
+                        <div class="field-label">📊 Resultado Obtenido:</div>
+                        <textarea class="field-editable resultado-textarea" data-prueba-id="{{ prueba.id }}" data-field="resultado_obtenido" placeholder="Describe el resultado obtenido tras realizar la prueba...">{% if prueba.resultado_obtenido and prueba.resultado_obtenido != 'None' %}{{ prueba.resultado_obtenido }}{% endif %}</textarea>
+                    </div>
+
+                    <!-- Estado Final y Resultado -->
+                    <div class="row mb-2">
+                        <div class="col-md-6">
+                            <div class="field-label">✅ Estado Final:</div>
+                            <select class="field-editable resultado-select" data-prueba-id="{{ prueba.id }}" data-field="resultado_final">
+                                <option value="" disabled {% if prueba.resultado_final == '' or prueba.resultado_final == 'PENDIENTE' %}selected{% endif %}>Selecciona estado</option>
+                                <option value="APTO" {% if prueba.resultado_final == 'APTO' %}selected{% endif %}>✅ Apto</option>
+                                <option value="NO_APTO" {% if prueba.resultado_final == 'NO_APTO' %}selected{% endif %}>❌ No Apto</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Observaciones -->
+                    <div class="prueba-field">
+                        <div class="field-label">🗒️ Observaciones:</div>
+                        <textarea class="field-editable observaciones-textarea" data-prueba-id="{{ prueba.id }}" data-field="observaciones" placeholder="Agrega notas, errores o incidencias detectadas...">{% if prueba.observaciones and prueba.observaciones != 'None' %}{{ prueba.observaciones }}{% endif %}</textarea>
+                    </div>
+
+                    <!-- Botones -->
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-guardar btn-guardar-prueba" data-prueba-id="{{ prueba.id }}">
+                            💾 Guardar Cambios
+                            <div class="spinner-border"></div>
+                        </button>
+                        <button class="btn-guardar btn-regenerar-prueba" data-prueba-id="{{ prueba.id }}" style="background-color: #17a2b8;">
+                            🔄 Regenerar
+                            <div class="spinner-border"></div>
+                        </button>
+                    </div>
+                    <div class="mensaje-estado mt-2" style="font-size: 0.85rem; color: #28a745; display: none;">✅ Guardado correctamente</div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i>
+        No se encontraron pruebas de caja negra.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // Manejar guardar cambios
+    document.querySelectorAll('.btn-guardar-prueba').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const pruebaId = this.dataset.pruebaId;
+            const card = this.closest('.card');
+            
+            // Recopilar datos a actualizar
+            const resultadoObtenido = card.querySelector('.resultado-textarea').value;
+            const estado = card.querySelector('.estado-select').value;
+            const resultadoFinal = card.querySelector('.resultado-select').value;
+            const observaciones = card.querySelector('.observaciones-textarea').value;
+            
+            // Mostrar spinner
+            const spinner = this.querySelector('.spinner-border');
+            spinner.classList.add('show');
+            this.disabled = true;
+            
+            // Enviar AJAX
+            fetch(`{% url 'actualizar_prueba_caja_negra' 0 %}`.replace('0', pruebaId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: new URLSearchParams({
+                    'resultado_obtenido': resultadoObtenido,
+                    'estado': estado,
+                    'resultado_final': resultadoFinal,
+                    'observaciones': observaciones
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                spinner.classList.remove('show');
+                this.disabled = false;
+                
+                if (data.status === 'success') {
+                    const mensaje = card.querySelector('.mensaje-estado');
+                    mensaje.style.display = 'block';
+                    setTimeout(() => {
+                        mensaje.style.display = 'none';
+                    }, 3000);
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                spinner.classList.remove('show');
+                this.disabled = false;
+                console.error('Error:', error);
+                alert('Error al guardar los cambios');
+            });
+        });
+    });
+
+    // Manejar regenerar prueba individual
+    document.querySelectorAll('.btn-regenerar-prueba').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const pruebaId = this.dataset.pruebaId;
+            const card = this.closest('.card');
+            
+            // Mostrar spinner
+            const spinner = this.querySelector('.spinner-border');
+            spinner.classList.add('show');
+            this.disabled = true;
+            
+            // Enviar AJAX
+            fetch(`{% url 'regenerar_prueba_caja_negra_individual' 0 %}`.replace('0', pruebaId), {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                spinner.classList.remove('show');
+                this.disabled = false;
+                
+                if (data.status === 'success') {
+                    // Recargar la página o actualizar la tarjeta
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                spinner.classList.remove('show');
+                this.disabled = false;
+                console.error('Error:', error);
+                alert('Error al regenerar la prueba');
+            });
+        });
+    });
+</script>
+
+{% endblock %}

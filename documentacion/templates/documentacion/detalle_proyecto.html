@@ -235,7 +235,32 @@
                             <div class="list-group list-group-flush">
                                 {% for sub in fase.subartefactos_ordenados %}
                                 <div class="list-group-item px-0 py-2 border-0 border-bottom">
-                                    {% if todos_diagramas_diseño %}
+                                    {% if sub.nombre == "caja negra" %}
+                                        {% if todos_diagramas_diseño %}
+                                            <!-- Si ya existen pruebas de caja negra, ir a verlas; si no, generar -->
+                                            {% if pruebas_caja_negra_generadas %}
+                                                <a href="{% url 'ver_pruebas_caja_negra' proyecto.id %}" 
+                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                                   title="Ver Pruebas de Caja Negra generadas"
+                                                   style="border-radius: 10px; font-size: 0.7rem;">
+                                                    {{ sub.nombre }}
+                                                </a>
+                                            {% else %}
+                                                <a href="{% url 'generar_pruebas_caja_negra' proyecto.id %}" 
+                                                   class="btn btn-sm btn-outline-primary w-100 text-truncate"
+                                                   title="Generar Pruebas de Caja Negra"
+                                                   style="border-radius: 10px; font-size: 0.7rem;">
+                                                    {{ sub.nombre }}
+                                                </a>
+                                            {% endif %}
+                                        {% else %}
+                                            <button class="btn btn-sm btn-outline-secondary w-100 text-truncate" disabled 
+                                                title="Completa todos los diagramas de Diseño primero"
+                                                style="border-radius: 10px; font-size: 0.7rem;">
+                                                🚫 {{ sub.nombre }}
+                                            </button>
+                                        {% endif %}
+                                    {% elif todos_diagramas_diseño %}
                                         <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
                                            class="btn btn-sm btn-outline-primary w-100 text-truncate"
                                            title="{{ sub.nombre }}"

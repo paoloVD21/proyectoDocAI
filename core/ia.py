@@ -124,18 +124,6 @@ PROMPTS = {
         "    Sistema-->>Usuario: Muestra resultado"
     ),
 
-    "Diagrama de estado": lambda texto: (
-        "Genera un diagrama de estados en sintaxis Mermaid basado en el siguiente texto:\n\n"
-        "-no utilices explicaciones del diagrama.\n"
-        f"{texto}\n\n"
-        "Ejemplo:\n"
-        "stateDiagram-v2\n"
-        "    [*] --> Estado1\n"
-        "    Estado1 --> Estado2: eventoA\n"
-        "    Estado2 --> Estado3: eventoB\n"
-        "    Estado3 --> [*]"
-    ),
-
     "Diagrama de C4-contexto": lambda texto: (
         "Genera un diagrama C4 de tipo contexto (c4Context) en sintaxis Mermaid basado en la siguiente descripción del sistema:\n\n"
         f"{texto}\n\n"
@@ -348,19 +336,30 @@ PROMPTS = {
     ),
 
 
-    "caja negra": lambda nombre_proyecto, descripcion: (
-        "Genera casos de prueba de caja negra detallados basados en el siguiente texto o historias de usuario:\n\n"
-        f"{nombre_proyecto, descripcion}\n\n"
-        "Para cada caso de prueba, estructura la información de la siguiente forma sin ningún formato enriquecido" 
-        "(sin negritas, sin cursivas, sin listas con viñetas, solo texto plano):\n"
-        "- Identificador: con formato PCN-01, PCN-02, PCN-03, ...\n"
-        "- Nombre de la prueba de caja negra\n"
-        "- Propósito\n"
-        "- Prerrequisito\n"
-        "- Datos de entrada\n"
-        "- Pasos para realizar la prueba\n"
-        "- Resultado esperado\n"
-        "Devuelve sólo el texto claro y estructurado siguiendo este formato para cada caso de prueba, sin numeraciones o texto adicional fuera de la estructura."
+    "caja_negra": lambda requisito_funcional, diagrama_flujo=None, historia_usuario=None: (
+    "Eres un ingeniero de software experto en aseguramiento de calidad (QA) especializado "
+    "en pruebas funcionales de caja negra.\n\n"
+    "Tu tarea es generar ÚNICAMENTE las siguientes secciones de una prueba de caja negra: "
+    "OBJETIVO, DATOS DE ENTRADA y PROCEDIMIENTO / PASOS.\n"
+    "Analiza el verbo principal del requisito funcional para formular el objetivo, "
+    "deduce los posibles datos de entrada y describe pasos lógicos y claros para validar el requisito.\n\n"
+    f"REQUISITO FUNCIONAL:\n{requisito_funcional}\n\n" +
+    (f"DIAGRAMA DE FLUJO (si existe):\n{diagrama_flujo}\n\n" if diagrama_flujo else "") +
+    (f"HISTORIA DE USUARIO (si existe):\n{historia_usuario}\n\n" if historia_usuario else "") +
+    "Genera la salida con el siguiente formato EXACTO (sin explicaciones ni texto adicional):\n\n"
+    "OBJETIVO:\n"
+    "[Validar que el sistema ...]\n\n"
+    "DATOS DE ENTRADA:\n"
+    "[Lista de datos de entrada separados por comas]\n\n"
+    "PROCEDIMIENTO / PASOS:\n"
+    "1. [Paso 1]\n"
+    "2. [Paso 2]\n"
+    "3. [Paso 3]\n"
+    "4. [Paso 4]\n"
+    "5. [Paso 5]\n\n"
+    "RESULTADO ESPERADO:\n"
+    "El sistema debe [acción esperada principal del RF], mostrando [salida o confirmación esperada], "
+    "y registrando [efecto o cambio en el sistema] según lo indicado en los pasos anteriores.\n"
     ),
 
     "smoke": lambda nombre_proyecto, descripcion: (

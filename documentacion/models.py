@@ -138,4 +138,72 @@ class Artefacto(models.Model):
         if self.subartefacto and not self.fase:
             self.fase = self.subartefacto.fase
         super().save(*args, **kwargs)
+
+
+class PruebacajaNegra(models.Model):
+    """Modelo para almacenar pruebas de caja negra basadas en requisitos funcionales"""
+    
+    ESTADO_CHOICES: List[Tuple[str, str]] = [
+        ('PENDIENTE', 'Pendiente'),
+        ('EN_EJECUCION', 'En Ejecución'),
+        ('FINALIZADO', 'Finalizado'),
+    ]
+    
+    RESULTADO_CHOICES: List[Tuple[str, str]] = [
+        ('APTO', 'Apto'),
+        ('NO_APTO', 'No Apto'),
+        ('PENDIENTE', 'Pendiente'),
+    ]
+
+    proyecto: models.ForeignKey = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='pruebas_caja_negra')
+    requisito_id: models.CharField = models.CharField(max_length=50, help_text="Ej: RF1, RF2, etc.")
+    numero_prueba: models.IntegerField = models.IntegerField(help_text="Número secuencial de la prueba")
+    
+    # Información del requisito
+    descripcion_requisito: models.TextField = models.TextField(help_text="Descripción del RF")
+    historia_usuario_relacionada: models.CharField = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="HU a la que pertenece el RF"
+    )
+    requisitos_relacionados: models.JSONField = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Lista de RFs que cubre esta prueba"
+    )
+    
+    # Contenido de la prueba
+    objetivo_prueba: models.TextField = models.TextField()
+    datos_entrada: models.TextField = models.TextField()
+    procedimiento: models.TextField = models.TextField()
+    resultado_esperado: models.TextField = models.TextField()
+    
+    # Resultados de ejecución (editable por usuario)
+    resultado_obtenido: models.TextField = models.TextField(blank=True, null=True)
+    estado: models.CharField = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='PENDIENTE'
+    )
+    resultado_final: models.CharField = models.CharField(
+        max_length=20,
+        choices=RESULTADO_CHOICES,
+        default='PENDIENTE'
+    )
+    observaciones: models.TextField = models.TextField(blank=True, null=True)
+    
+    # Metadata
+    generado_por_ia: models.BooleanField = models.BooleanField(default=True)
+    creado: models.DateTimeField = models.DateTimeField(auto_now_add=True)
+    actualizado: models.DateTimeField = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['numero_prueba']
+        verbose_name = "Prueba de Caja Negra"
+        verbose_name_plural = "Pruebas de Caja Negra"
+        unique_together = ('proyecto', 'requisito_id', 'numero_prueba')
+
+    def __str__(self) -> str:
+        return f"PCN{self.numero_prueba} - {self.requisito_id} ({self.proyecto.nombre})"
         

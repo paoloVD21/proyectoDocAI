@@ -8,7 +8,7 @@ from django.contrib import messages # pyright: ignore[reportMissingModuleSource]
 from django.contrib.auth.models import User # pyright: ignore[reportMissingModuleSource]
 from django.views.decorators.csrf import csrf_exempt # pyright: ignore[reportMissingModuleSource]
 from django.core.exceptions import ValidationError # pyright: ignore[reportMissingModuleSource]
-from .models import Project, Artefacto, Fase, SubArtefacto, SecurityQuestions
+from .models import Project, Artefacto, Fase, SubArtefacto, SecurityQuestions, PruebacajaNegra
 from .forms import (ProjectForm, ArtefactoForm, CustomUserCreationForm, SecurityQuestionsForm,
                    PasswordResetRequestForm, SecurityAnswersForm, NewPasswordForm)
 from core.ia import generar_subartefacto_con_prompt, extraer_requisitos, _generar_contenido, PROMPTS
@@ -321,6 +321,11 @@ def detalle_proyecto(request, proyecto_id):
         titulo__startswith="Requisitos -"
     ).exists()
     
+    # Verificar si ya se generaron pruebas de caja negra
+    pruebas_caja_negra_generadas = PruebacajaNegra.objects.filter(
+        proyecto=proyecto
+    ).exists()
+    
     return render(request, 'documentacion/detalle_proyecto.html', {
         'proyecto': proyecto,
         'fases': fases,
@@ -334,7 +339,8 @@ def detalle_proyecto(request, proyecto_id):
         'diagrama_entidad_relacion_generado': diagrama_entidad_relacion_generado,
         'ambos_diagramas_base_generados': ambos_diagramas_base_generados,
         'todos_diagramas_diseño': todos_diagramas_diseño_validos,
-        'fases_desbloqueadas': fases_desbloqueadas
+        'fases_desbloqueadas': fases_desbloqueadas,
+        'pruebas_caja_negra_generadas': pruebas_caja_negra_generadas
     })
 
 # ===================== CREAR Y EDITA ARTEFACTOS =====================
@@ -2011,3 +2017,441 @@ def password_reset_confirm(request):
     except (User.DoesNotExist, ValueError):
         messages.error(request, "Error al verificar el usuario.")
         return redirect('password_reset_request')
+
+
+# ===================== PRUEBAS DE CAJA NEGRA =====================
+
+@login_required
+def generar_pruebas_caja_negra(request, proyecto_id):
+    """
+    Vista para generar pruebas de caja negra basadas en Historias de Usuario.
+    Una prueba por cada HU, que cubre todos sus Requisitos Funcionales asociados.
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    try:
+        # 1. Obtener Historias de Usuario
+        hu_art = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__iexact="Historia de Usuario"
+        ).first()
+        
+        if not hu_art or not hu_art.contenido:
+            messages.error(request, "❌ No se encontraron Historias de Usuario")
+            return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # 2. Obtener Requisitos
+        requisitos_art = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__in=["Requisitos"]
+        ).first()
+        
+        if not requisitos_art:
+            requisitos_art = Artefacto.objects.filter(
+                proyecto=proyecto,
+                titulo__startswith="Requisitos -"
+            ).first()
+        
+        if not requisitos_art or not requisitos_art.contenido:
+            messages.error(request, "❌ No se encontraron Requisitos")
+            return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # 3. Obtener Diagrama de Flujo
+        diagrama_flujo = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__startswith="Diagrama de flujo"
+        ).first()
+        
+        if not diagrama_flujo:
+            messages.error(request, "❌ No se encontraron Diagramas de Flujo")
+            return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # 4. Extraer lista de HU del contenido de Requisitos
+        hu_list = extraer_historias_de_usuario(requisitos_art.contenido)
+        
+        if not hu_list:
+            messages.error(request, "❌ No se encontraron Historias de Usuario en los Requisitos")
+            return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        # 5. Eliminar pruebas anteriores si existen
+        PruebacajaNegra.objects.filter(proyecto=proyecto).delete()
+        
+        # 6. Generar una prueba por cada HU
+        pruebas_creadas = 0
+        
+        for hu_num, hu_name in enumerate(hu_list, 1):
+            try:
+                # Extraer número de HU (ej: HU1 -> 1, HU02 -> 2)
+                hu_numero = hu_name.replace("HU", "").lstrip("0") or "0"
+                
+                # Buscar TODOS los RF asociados a esta HU específica
+                requisitos_especificos = []
+                
+                for line in requisitos_art.contenido.split('\n'):
+                    # Buscar múltiples formatos: [HU1], [HU01], [HU001], etc.
+                    if line.strip().startswith("RF") and (f"[{hu_name}]" in line or f"[HU0{hu_numero}]" in line or f"[HU{hu_numero}]" in line):
+                        requisitos_especificos.append(line.strip())
+                
+                if not requisitos_especificos:
+                    print(f"[DEBUG] No se encontraron RF para {hu_name}, saltando...")
+                    continue
+                
+                # Construir texto con TODOS los requisitos de esta HU
+                rfs_texto = "\n".join(requisitos_especificos)
+                
+                # Extraer contenido de esa HU específica de Historia de Usuario
+                hu_pattern = f"{hu_name}:"
+                hu_descripcion = hu_name  # Default
+                if hu_pattern in hu_art.contenido:
+                    hu_inicio = hu_art.contenido.find(hu_pattern)
+                    # Extraer la primera línea después del nombre (la descripción)
+                    hu_linea_inicio = hu_inicio + len(hu_pattern)
+                    hu_linea_fin = hu_art.contenido.find("\n", hu_linea_inicio)
+                    if hu_linea_fin == -1:
+                        hu_descripcion = hu_art.contenido[hu_linea_inicio:].strip()
+                    else:
+                        hu_descripcion = hu_art.contenido[hu_linea_inicio:hu_linea_fin].strip()
+                
+                # Para la IA, usar todo el contenido de la HU
+                hu_pattern = f"{hu_name}:"
+                if hu_pattern in hu_art.contenido:
+                    hu_inicio = hu_art.contenido.find(hu_pattern)
+                    hu_siguiente = hu_art.contenido.find("\nHU", hu_inicio + 1)
+                    if hu_siguiente == -1:
+                        hu_contenido_especifico = hu_art.contenido[hu_inicio:]
+                    else:
+                        hu_contenido_especifico = hu_art.contenido[hu_inicio:hu_siguiente]
+                else:
+                    hu_contenido_especifico = hu_name
+                
+                # Generar contenido de la prueba usando IA
+                contenido_prueba = generar_subartefacto_con_prompt(
+                    tipo="caja_negra",
+                    requisito_funcional=rfs_texto,
+                    diagrama_flujo=diagrama_flujo.contenido if diagrama_flujo else None,
+                    historia_usuario=hu_contenido_especifico
+                )
+                
+                # Parsear el contenido generado
+                objetivo = ""
+                entrada = ""
+                procedimiento = ""
+                resultado = ""
+                
+                lines = contenido_prueba.split('\n')
+                current_section = None
+                
+                for line in lines:
+                    line_stripped = line.strip()
+                    
+                    # Detectar secciones por sus encabezados
+                    if line_stripped == 'OBJETIVO:':
+                        current_section = 'objetivo'
+                    elif line_stripped == 'DATOS DE ENTRADA:':
+                        current_section = 'entrada'
+                    elif 'PROCEDIMIENTO' in line_stripped or 'PASOS' in line_stripped:
+                        current_section = 'procedimiento'
+                    elif line_stripped == 'RESULTADO ESPERADO:':
+                        current_section = 'resultado'
+                    elif current_section and line_stripped:
+                        # Agregar contenido a la sección actual
+                        if current_section == 'objetivo':
+                            objetivo += (line_stripped if not objetivo else " " + line_stripped)
+                        elif current_section == 'entrada':
+                            entrada += (line_stripped if not entrada else ", " + line_stripped)
+                        elif current_section == 'procedimiento':
+                            procedimiento += ("\n" + line_stripped if procedimiento else line_stripped)
+                        elif current_section == 'resultado':
+                            resultado += (line_stripped if not resultado else " " + line_stripped)
+                
+                # Extraer lista de RFs con sus descripciones para esta HU
+                rf_dict = {}
+                for rf_line in requisitos_especificos:
+                    rf_match = re.search(r'(RF\d+)', rf_line)
+                    if rf_match:
+                        rf_id = rf_match.group(1)
+                        # Extraer descripción (todo después del ":")
+                        descripcion_match = re.search(r'RF\d+:\s*(.+)', rf_line)
+                        descripcion = descripcion_match.group(1) if descripcion_match else rf_line
+                        # Limpiar tags [HU#] de la descripción
+                        descripcion = re.sub(r'\s*\[HU\d+\]\s*', '', descripcion)
+                        # Limpiar RF# redundante al inicio (ej: "RF1El sistema..." o "RF1 El sistema...")
+                        descripcion = re.sub(rf'^{re.escape(rf_id)}\s*', '', descripcion)
+                        rf_dict[rf_id] = descripcion.strip()
+                
+                # Crear la prueba de caja negra (una por HU)
+                prueba = PruebacajaNegra.objects.create(
+                    proyecto=proyecto,
+                    requisito_id=hu_name,  # Identificador es la HU
+                    numero_prueba=hu_num,
+                    descripcion_requisito=hu_descripcion[:500],  # Descripción de la HU
+                    historia_usuario_relacionada=hu_name,
+                    objetivo_prueba=objetivo.strip(),
+                    datos_entrada=entrada.strip(),
+                    procedimiento=procedimiento.strip(),
+                    resultado_esperado=resultado.strip(),
+                    generado_por_ia=True
+                )
+                
+                # Guardar RFs relacionados como JSON con sus descripciones
+                if rf_dict:
+                    prueba.requisitos_relacionados = rf_dict
+                    prueba.save()
+                
+                pruebas_creadas += 1
+                print(f"[DEBUG] Prueba para {hu_name} creada exitosamente")
+                
+            except Exception as e:
+                print(f"[ERROR] Generando prueba para {hu_name}: {str(e)}")
+                import traceback
+                print(traceback.format_exc())
+                continue
+        
+        if pruebas_creadas == 0:
+            messages.error(request, "❌ No se pudieron generar pruebas de caja negra")
+            return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+        
+        messages.success(request, f"✅ Se generaron {pruebas_creadas} Prueba(s) de Caja Negra (una por cada Historia de Usuario)")
+        return redirect('ver_pruebas_caja_negra', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    except Exception as e:
+        import traceback
+        print(f"[ERROR] En generar_pruebas_caja_negra: {str(e)}")
+        print(traceback.format_exc())
+        messages.error(request, f"❌ Error al generar pruebas: {str(e)}")
+        return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+@login_required
+def ver_pruebas_caja_negra(request, proyecto_id):
+    """
+    Vista para ver y editar las pruebas de caja negra generadas.
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    pruebas = PruebacajaNegra.objects.filter(proyecto=proyecto).order_by('numero_prueba')
+    
+    return render(request, 'documentacion/ver_pruebas_caja_negra.html', {
+        'proyecto': proyecto,
+        'pruebas': pruebas,
+        'cantidad_pruebas': pruebas.count()
+    })
+
+
+@login_required
+@require_POST
+def actualizar_prueba_caja_negra(request, prueba_id):
+    """
+    AJAX endpoint para actualizar una prueba de caja negra.
+    """
+    try:
+        prueba = get_object_or_404(PruebacajaNegra, id=prueba_id, proyecto__propietario=request.user)
+        
+        # Actualizar campos
+        if 'resultado_obtenido' in request.POST:
+            prueba.resultado_obtenido = request.POST.get('resultado_obtenido', '')
+        
+        if 'estado' in request.POST:
+            estado = request.POST.get('estado', '')
+            if estado in ['PENDIENTE', 'EN_EJECUCION', 'FINALIZADO']:
+                prueba.estado = estado
+        
+        if 'resultado_final' in request.POST:
+            resultado = request.POST.get('resultado_final', '')
+            if resultado in ['APTO', 'NO_APTO', 'PENDIENTE']:
+                prueba.resultado_final = resultado
+        
+        if 'observaciones' in request.POST:
+            prueba.observaciones = request.POST.get('observaciones', '')
+        
+        prueba.save()
+        
+        return JsonResponse({'status': 'success', 'message': 'Prueba actualizada correctamente'})
+    
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+
+@login_required
+def eliminar_todas_pruebas_caja_negra(request, proyecto_id):
+    """
+    Vista para eliminar todas las pruebas de caja negra de un proyecto.
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    try:
+        PruebacajaNegra.objects.filter(proyecto=proyecto).delete()
+        messages.success(request, "✅ Todas las pruebas de caja negra han sido eliminadas")
+    except Exception as e:
+        messages.error(request, f"❌ Error al eliminar pruebas: {str(e)}")
+    
+    return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+@login_required
+def regenerar_pruebas_caja_negra(request, proyecto_id):
+    """
+    Vista para regenerar todas las pruebas de caja negra de un proyecto.
+    Elimina las anteriores y genera nuevas.
+    """
+    proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+    
+    try:
+        # Eliminar pruebas anteriores
+        PruebacajaNegra.objects.filter(proyecto=proyecto).delete()
+        
+        # Redirigir a generar nuevas pruebas
+        return redirect('generar_pruebas_caja_negra', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+    
+    except Exception as e:
+        messages.error(request, f"❌ Error al regenerar pruebas: {str(e)}")
+        return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+@login_required
+def regenerar_prueba_caja_negra_individual(request, prueba_id):
+    """
+    AJAX endpoint para regenerar una prueba de caja negra individual.
+    """
+    import json
+    try:
+        prueba = get_object_or_404(PruebacajaNegra, id=prueba_id, proyecto__propietario=request.user)
+        proyecto = prueba.proyecto
+        
+        # Obtener artefactos necesarios con las búsquedas correctas
+        hu_art = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__iexact="Historia de Usuario"
+        ).first()
+        
+        requisitos_art = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__in=["Requisitos"]
+        ).first()
+        
+        if not requisitos_art:
+            requisitos_art = Artefacto.objects.filter(
+                proyecto=proyecto,
+                titulo__startswith="Requisitos -"
+            ).first()
+        
+        diagrama_flujo = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__startswith="Diagrama de flujo"
+        ).first()
+        
+        if not all([requisitos_art, hu_art]):
+            return JsonResponse({'status': 'error', 'message': 'Artefactos necesarios no encontrados'}, status=400)
+        
+        hu_name = prueba.requisito_id  # Ej: HU1
+        
+        # Buscar TODOS los RF asociados a esta HU
+        requisitos_especificos = []
+        hu_numero = hu_name.replace("HU", "").lstrip("0") or "0"
+        
+        if requisitos_art and requisitos_art.contenido:  # pyright: ignore[reportOptionalMemberAccess]
+            for line in requisitos_art.contenido.split('\n'):
+                if line.strip().startswith("RF") and (f"[{hu_name}]" in line or f"[HU0{hu_numero}]" in line or f"[HU{hu_numero}]" in line):
+                    requisitos_especificos.append(line.strip())
+        
+        if not requisitos_especificos:
+            return JsonResponse({'status': 'error', 'message': f'No se encontraron RF para {hu_name}'}, status=400)
+        
+        # Construir texto con requisitos
+        rfs_texto = "\n".join(requisitos_especificos)
+        
+        # Extraer descripción de la HU
+        hu_pattern = f"{hu_name}:"
+        hu_descripcion = hu_name
+        if hu_pattern in hu_art.contenido:  # pyright: ignore[reportOptionalMemberAccess]
+            hu_inicio = hu_art.contenido.find(hu_pattern)  # pyright: ignore[reportOptionalMemberAccess]
+            hu_linea_inicio = hu_inicio + len(hu_pattern)
+            hu_linea_fin = hu_art.contenido.find("\n", hu_linea_inicio)  # pyright: ignore[reportOptionalMemberAccess]
+            if hu_linea_fin == -1:
+                hu_descripcion = hu_art.contenido[hu_linea_inicio:].strip() # pyright: ignore[reportOptionalMemberAccess]
+            else:
+                hu_descripcion = hu_art.contenido[hu_linea_inicio:hu_linea_fin].strip()  # pyright: ignore[reportOptionalMemberAccess]
+        
+        # Para la IA, usar todo el contenido de la HU
+        hu_contenido_especifico = hu_name
+        if hu_pattern in hu_art.contenido:  # pyright: ignore[reportOptionalMemberAccess]
+            hu_inicio = hu_art.contenido.find(hu_pattern) # pyright: ignore[reportOptionalMemberAccess]
+            hu_siguiente = hu_art.contenido.find("\nHU", hu_inicio + 1) # pyright: ignore[reportOptionalMemberAccess]
+            if hu_siguiente == -1:
+                hu_contenido_especifico = hu_art.contenido[hu_inicio:] # pyright: ignore[reportOptionalMemberAccess]
+            else:
+                hu_contenido_especifico = hu_art.contenido[hu_inicio:hu_siguiente] # pyright: ignore[reportOptionalMemberAccess]
+        
+        # Generar contenido usando IA
+        contenido_prueba = generar_subartefacto_con_prompt(
+            tipo="caja_negra",
+            requisito_funcional=rfs_texto,
+            diagrama_flujo=diagrama_flujo.contenido if diagrama_flujo else None,
+            historia_usuario=hu_contenido_especifico
+        )
+        
+        # Parsear contenido (mismo algoritmo que en generar_pruebas_caja_negra)
+        objetivo = ""
+        entrada = ""
+        procedimiento = ""
+        resultado = ""
+        
+        lines = contenido_prueba.split('\n')
+        current_section = None
+        
+        for line in lines:
+            line_stripped = line.strip()
+            
+            if line_stripped == 'OBJETIVO:':
+                current_section = 'objetivo'
+            elif line_stripped == 'DATOS DE ENTRADA:':
+                current_section = 'entrada'
+            elif 'PROCEDIMIENTO' in line_stripped or 'PASOS' in line_stripped:
+                current_section = 'procedimiento'
+            elif line_stripped == 'RESULTADO ESPERADO:':
+                current_section = 'resultado'
+            elif current_section and line_stripped:
+                if current_section == 'objetivo':
+                    objetivo += (line_stripped if not objetivo else " " + line_stripped)
+                elif current_section == 'entrada':
+                    entrada += (line_stripped if not entrada else ", " + line_stripped)
+                elif current_section == 'procedimiento':
+                    procedimiento += ("\n" + line_stripped if procedimiento else line_stripped)
+                elif current_section == 'resultado':
+                    resultado += (line_stripped if not resultado else " " + line_stripped)
+        
+        # Extraer lista de RFs con sus descripciones
+        rf_dict = {}
+        for rf_line in requisitos_especificos:
+            rf_match = re.search(r'(RF\d+)', rf_line)
+            if rf_match:
+                rf_id = rf_match.group(1)
+                descripcion_match = re.search(r'RF\d+:\s*(.+)', rf_line)
+                descripcion = descripcion_match.group(1) if descripcion_match else rf_line
+                descripcion = re.sub(r'\s*\[HU\d+\]\s*', '', descripcion)
+                descripcion = re.sub(rf'^{re.escape(rf_id)}\s*', '', descripcion)
+                rf_dict[rf_id] = descripcion.strip()
+        
+        # Actualizar prueba existente
+        prueba.descripcion_requisito = hu_descripcion[:500]
+        prueba.objetivo_prueba = objetivo.strip()
+        prueba.datos_entrada = entrada.strip()
+        prueba.procedimiento = procedimiento.strip()
+        prueba.resultado_esperado = resultado.strip()
+        prueba.generado_por_ia = True
+        
+        if rf_dict:
+            prueba.requisitos_relacionados = rf_dict
+        
+        prueba.save()
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': '✅ Prueba regenerada correctamente',
+            'prueba_id': prueba.id  # pyright: ignore[reportAttributeAccessIssue]
+        })
+    
+    except Exception as e:
+        print(f"[ERROR] Regenerando prueba {prueba_id}: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({'status': 'error', 'message': f'Error: {str(e)}'}, status=400)

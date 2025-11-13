@@ -34,4 +34,10 @@ urlpatterns = [
     path('password-reset/', views.password_reset_request, name='password_reset_request'), # Solicitar restablecimiento de contraseña
     path('password-reset/verify/', views.password_reset_verify, name='password_reset_verify'), # Verificar respuestas de seguridad
     path('password-reset/confirm/', views.password_reset_confirm, name='password_reset_confirm'), # Confirmar nueva contraseña
+    path('proyecto/<int:proyecto_id>/pruebas-caja-negra/generar/', views.generar_pruebas_caja_negra, name='generar_pruebas_caja_negra'),  # generar pruebas de caja negra
+    path('proyecto/<int:proyecto_id>/pruebas-caja-negra/', views.ver_pruebas_caja_negra, name='ver_pruebas_caja_negra'),  # ver pruebas de caja negra
+    path('proyecto/<int:proyecto_id>/pruebas-caja-negra/regenerar/', views.regenerar_pruebas_caja_negra, name='regenerar_pruebas_caja_negra'),  # regenerar todas las pruebas
+    path('proyecto/<int:proyecto_id>/pruebas-caja-negra/eliminar-todas/', views.eliminar_todas_pruebas_caja_negra, name='eliminar_todas_pruebas_caja_negra'),  # eliminar todas las pruebas
+    path('prueba-caja-negra/<int:prueba_id>/actualizar/', views.actualizar_prueba_caja_negra, name='actualizar_prueba_caja_negra'),  # actualizar prueba (AJAX)
+    path('prueba-caja-negra/<int:prueba_id>/regenerar/', views.regenerar_prueba_caja_negra_individual, name='regenerar_prueba_caja_negra_individual'),  # regenerar prueba individual
 ]
