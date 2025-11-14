@@ -6,7 +6,6 @@
 {% block title %}Editar Proyecto | DocAI{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/crear_proyecto.css' %}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 {% endblock %}
 
@@ -49,30 +48,21 @@
                 </div>
 
                 <!-- Usuarios y Necesidades -->
-                <h5 class="section-title mb-4">Usuarios y sus Necesidades</h5>
-                <div id="usuarios-container">
-                    <div class="user-section">
-                        <div class="form-group">
-                            <div class="field-label">
-                                <label>Agregar Usuarios del Sistema</label>
-                                <span class="help-icon" data-bs-toggle="tooltip" data-bs-placement="right" 
-                                      title="Define los tipos de usuarios que interactuarán con el sistema">ⓘ</span>
-                            </div>
-                            <div class="input-group">
-                                <input type="text" class="form-control usuario-input" 
-                                       placeholder="Ejemplo: Administrador, Cliente, Vendedor...">
-                                <button type="button" class="btn btn-primary add-usuario-btn">Agregar Usuario</button>
-                            </div>
-                        </div>
-
-                        <div id="usuarios-list" class="mt-3">
-                            <!-- Los usuarios se agregarán aquí dinámicamente -->
-                        </div>
+                <h5 class="section-title mb-4">Usuarios y sus Necesidades 
+                    <span class="help-icon" data-bs-toggle="tooltip" data-bs-placement="right" 
+                          title="Ingrese cada usuario en una línea con su descripción. Ejemplo: Administrador - Gestionar usuarios y permisos">ⓘ</span>
+                </h5>
+                <div class="form-group mb-4">
+                    <div class="field-label">
                     </div>
+                    <textarea name="usuarios_necesidades" id="id_usuarios_necesidades" class="form-control" rows="6" placeholder="Administrador - Gestionar usuarios&#10;Cliente - Consultar información&#10;Vendedor - Registrar ventas">{{ form.usuarios_necesidades.value|default:'' }}</textarea>
+                    {% if form.usuarios_necesidades.errors %}
+                        <div class="text-danger small mt-1">{{ form.usuarios_necesidades.errors }}</div>
+                    {% endif %}
+                    <small class="text-muted d-block mt-2">
+                        <strong>Formato:</strong> Un usuario por línea. Usa guión (-) para separar el nombre del usuario de sus necesidades.
+                    </small>
                 </div>
-
-                <!-- Campo oculto para almacenar usuarios y necesidades -->
-                {{ form.usuarios_necesidades }}
 
                 <!-- Botones de acción -->
                 <div class="mt-4 text-center">
@@ -83,133 +73,4 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script src="{% static 'js/crear_proyecto.js' %}?v=1.1"></script>
-<script>
-    // Script para cargar usuarios existentes al editar
-    document.addEventListener('DOMContentLoaded', function() {
-        const usuariosField = document.querySelector('input[name="usuarios_necesidades"]');
-        
-        if (usuariosField && usuariosField.value) {
-            try {
-                const usuariosData = JSON.parse(usuariosField.value);
-                const usuariosList = document.getElementById('usuarios-list');
-                
-                // Limpiar lista existente
-                usuariosList.innerHTML = '';
-                
-                // Recargar usuarios
-                for (const [usuario, data] of Object.entries(usuariosData)) {
-                    addUserToList(usuario);
-                    
-                    // Agregar necesidades existentes
-                    if (data.necesidades && data.necesidades.length > 0) {
-                        const userDiv = usuariosList.lastElementChild;
-                        const needsList = userDiv.querySelector('.needs-list');
-                        
-                        data.necesidades.forEach(need => {
-                            addNeedToList(usuario, need, needsList);
-                        });
-                    }
-                }
-            } catch (e) {
-                console.error('Error al cargar usuarios existentes:', e);
-            }
-        }
-    });
-    
-    // Función para agregar usuario a la lista
-    function addUserToList(usuario) {
-        const usuariosList = document.getElementById('usuarios-list');
-        const userDiv = document.createElement('div');
-        userDiv.className = 'user-section mt-4 border rounded p-3';
-        userDiv.innerHTML = `
-            <div class="user-header d-flex justify-content-between align-items-center mb-3">
-                <h6 class="m-0 text-uppercase fw-bold">
-                    <i class="fas fa-user-circle me-2"></i>${usuario}
-                </h6>
-                <button type="button" class="btn btn-outline-danger btn-sm delete-user-btn">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
-            </div>
-            <div class="user-content">
-                <div class="user-needs mb-3">
-                    <label>Necesidades específicas</label>
-                    <div class="input-group mb-2">
-                        <input type="text" class="form-control need-input" placeholder="¿Qué necesita este usuario?">
-                        <button type="button" class="btn btn-outline-primary add-need-btn">
-                            <i class="fas fa-plus"></i> Agregar
-                        </button>
-                    </div>
-                    <div class="needs-list list-group"></div>
-                </div>
-            </div>
-        `;
-        
-        usuariosList.appendChild(userDiv);
-        
-        const needInput = userDiv.querySelector('.need-input');
-        const addNeedBtn = userDiv.querySelector('.add-need-btn');
-        const needsList = userDiv.querySelector('.needs-list');
-        const deleteBtn = userDiv.querySelector('.delete-user-btn');
-        
-        addNeedBtn.addEventListener('click', function() {
-            const need = needInput.value.trim();
-            if (!need) {
-                needInput.classList.add('is-invalid');
-                return;
-            }
-            addNeedToList(usuario, need, needsList);
-            needInput.value = '';
-            needInput.classList.remove('is-invalid');
-            needInput.focus();
-            updateHiddenFields();
-        });
-        
-        deleteBtn.addEventListener('click', function() {
-            if (confirm('¿Está seguro de eliminar este usuario?')) {
-                userDiv.remove();
-                updateHiddenFields();
-            }
-        });
-    }
-    
-    // Función para agregar necesidad a la lista
-    function addNeedToList(usuario, need, needsList) {
-        const needItem = document.createElement('div');
-        needItem.className = 'list-group-item';
-        needItem.innerHTML = `
-            <span>${need}</span>
-            <button type="button" class="btn btn-outline-danger btn-sm delete-need-btn">×</button>
-        `;
-        
-        needsList.appendChild(needItem);
-        
-        needItem.querySelector('.delete-need-btn').addEventListener('click', function() {
-            needItem.remove();
-            updateHiddenFields();
-        });
-    }
-    
-    // Función para actualizar el campo oculto
-    function updateHiddenFields() {
-        const usuariosData = {};
-        const usuariosList = document.getElementById('usuarios-list');
-        
-        usuariosList.querySelectorAll('.user-section').forEach(userDiv => {
-            const usuarioNombre = userDiv.querySelector('h6').textContent.trim().split('\n')[0].replace('×', '').trim();
-            const needs = [];
-            
-            userDiv.querySelectorAll('.needs-list .list-group-item span').forEach(item => {
-                needs.push(item.textContent.trim());
-            });
-            
-            usuariosData[usuarioNombre] = { necesidades: needs };
-        });
-        
-        document.querySelector('input[name="usuarios_necesidades"]').value = JSON.stringify(usuariosData);
-    }
-</script>
 {% endblock %}

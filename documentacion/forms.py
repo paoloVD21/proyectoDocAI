@@ -88,16 +88,18 @@ class ProjectForm(forms.ModelForm):
     )
 
     usuarios_necesidades = forms.CharField(
-        label='Usuarios y Necesidades',
+        label='Usuarios Finales y sus Necesidades',
         required=False,
-        widget=forms.HiddenInput()
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 6,
+            'placeholder': 'Administrador - Gestionar usuarios\nCliente - Consultar información\nVendedor - Registrar ventas'
+        })
     )
 
     class Meta:
         model = Project
         fields = ['nombre', 'descripcion', 'usuarios_necesidades']
-
-# ===== validadcion proyecto ============
     def clean_nombre(self):
         nombre = self.cleaned_data['nombre'].strip()
 
