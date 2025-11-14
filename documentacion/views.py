@@ -276,7 +276,38 @@ def editar_proyecto(request, pk):
     if request.method == 'POST':
         form = ProjectForm(request.POST, instance=proyecto)
         if form.is_valid():
+            # Guardar los datos anteriores para comparar
+            datos_anteriores = {
+                'nombre': proyecto.nombre,
+                'descripcion': proyecto.descripcion,
+                'usuarios_necesidades': proyecto.usuarios_necesidades
+            }
+            
+            # Guardar el proyecto actualizado
             form.save()
+            proyecto.refresh_from_db()
+            
+            # Verificar si cambió algún dato importante
+            datos_cambiados = (
+                datos_anteriores['nombre'] != proyecto.nombre or
+                datos_anteriores['descripcion'] != proyecto.descripcion or
+                datos_anteriores['usuarios_necesidades'] != proyecto.usuarios_necesidades
+            )
+            
+            # Si cambió algo, eliminar TODOS los artefactos generados por IA
+            if datos_cambiados:
+                Artefacto.objects.filter(
+                    proyecto=proyecto,
+                    generado_por_ia=True
+                ).delete()
+                
+                # También eliminar pruebas de caja negra
+                PruebacajaNegra.objects.filter(proyecto=proyecto).delete()
+                
+                messages.warning(request, '⚠️ Proyecto actualizado. Los artefactos generados han sido eliminados. Regenera Historia de Usuario para continuar.')
+            else:
+                messages.success(request, '✅ Proyecto actualizado correctamente.')
+            
             return redirect('dashboard')
     else:
         form = ProjectForm(instance=proyecto)
