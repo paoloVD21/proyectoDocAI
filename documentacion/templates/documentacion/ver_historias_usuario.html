@@ -30,7 +30,7 @@
         <div class="d-flex gap-2">
             <a href="{% url 'detalle_proyecto' proyecto.id %}" class="btn btn-outline-success">← Regresar</a>
             <a href="{% url 'editar_artefacto' artefacto.id %}" class="btn btn-outline-warning">✏️ Editar</a>
-            <button type="button" class="btn btn-outline-info" onclick="regenerarHU()">♻️ Regenerar con IA</button>
+            <button type="button" class="btn btn-outline-info" id="btnRegenerar" onclick="regenerarHU(this)">♻️ Regenerar con IA</button>
             <form method="post" action="{% url 'eliminar_artefacto' artefacto.id %}" style="display:inline;">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-outline-danger" onclick="return confirm('⚠️ ¿Está seguro de que desea eliminar las Historias de Usuario?\n\nEsta acción NO se puede deshacer.')">🗑️ Eliminar</button>
@@ -106,11 +106,172 @@
 </div>
 
 <script>
-function regenerarHU() {
+function regenerarHU(btnElement) {
     if (confirm('⚠️ ¿Desea regenerar las Historias de Usuario con IA?\n\nEsto reemplazará el contenido actual.')) {
-        // Redirige a la página de edición con parámetro para regenerar
-        window.location.href = '{% url "editar_artefacto" artefacto.id %}?regenerar=1';
+        // Mostrar indicador de carga
+        const textOriginal = btnElement.innerHTML;
+        btnElement.disabled = true;
+        btnElement.innerHTML = '⏳ Regenerando...';
+        
+        // Enviar AJAX para regenerar
+        fetch('{% url "regenerar_artefacto_ajax" artefacto.id %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.message || 'Error desconocido');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                // Actualizar el contenido de las historias sin recargar la página
+                actualizarHistorias(data);
+                
+                // Mostrar notificación de éxito
+                mostrarNotificacion(data.message, 'success');
+            } else {
+                mostrarNotificacion(data.message || 'Error al regenerar', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarNotificacion('❌ ' + error.message, 'error');
+        })
+        .finally(() => {
+            // Restaurar botón
+            btnElement.disabled = false;
+            btnElement.innerHTML = textOriginal;
+        });
     }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function actualizarHistorias(data) {
+    // Limpiar el contenedor de historias
+    const historiasList = document.querySelector('.row');
+    if (!historiasList) return;
+    
+    historiasList.innerHTML = '';
+    
+    if (data.historias && data.historias.length > 0) {
+        data.historias.forEach((historia, index) => {
+            const historiasHTML = `
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm border-left" style="border-left: 5px solid #0d6efd;">
+                        <!-- Header -->
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">📋 Historia de Usuario #${index + 1}</h5>
+                        </div>
+
+                        <!-- Cuerpo -->
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <h6 class="text-primary mb-2"><strong>Como:</strong></h6>
+                                <p class="card-text bg-light p-3 rounded">${escapeHtml(historia.como)}</p>
+                            </div>
+
+                            <div class="mb-3">
+                                <h6 class="text-primary mb-2"><strong>Quiero:</strong></h6>
+                                <p class="card-text bg-light p-3 rounded">${escapeHtml(historia.quiero)}</p>
+                            </div>
+
+                            <div class="mb-3">
+                                <h6 class="text-primary mb-2"><strong>Para:</strong></h6>
+                                <p class="card-text bg-light p-3 rounded">${escapeHtml(historia.para)}</p>
+                            </div>
+
+                            ${historia.criterios && historia.criterios.length > 0 ? `
+                            <div class="mt-4">
+                                <h6 class="text-success mb-3"><strong>✓ Criterios de Aceptación:</strong></h6>
+                                <div class="list-group">
+                                    ${historia.criterios.map(criterio => `
+                                        <div class="list-group-item bg-white border">
+                                            <span class="badge bg-success me-2">✓</span>${escapeHtml(criterio)}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Metadatos -->
+                        <div class="card-footer bg-light">
+                            <small class="text-muted">
+                                📅 Actualizado: ${escapeHtml(data.actualizado)}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            historiasList.innerHTML += historiasHTML;
+        });
+    } else {
+        historiasList.innerHTML = `
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+                No se encontraron historias de usuario.
+            </div>
+        `;
+    }
+}
+
+function mostrarNotificacion(mensaje, tipo) {
+    // Crear notificación flotante
+    const notificacionDiv = document.createElement('div');
+    notificacionDiv.className = `alert alert-${tipo === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+    notificacionDiv.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 350px;
+        z-index: 1000;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+    notificacionDiv.setAttribute('role', 'alert');
+    notificacionDiv.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    `;
+    
+    document.body.appendChild(notificacionDiv);
+    
+    // Auto-remove después de 5 segundos
+    setTimeout(() => {
+        notificacionDiv.remove();
+    }, 5000);
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
 }
 </script>
 {% endblock %}

@@ -61,6 +61,147 @@ def extraer_historias_de_usuario(contenido: str) -> list:
     return hu_list
 
 
+def actualizar_en_cascada_requisitos(proyecto, hu_relacionada, contenido_nuevo):
+    """
+    🔄 ACTUALIZACIÓN EN CASCADA: Cuando se regeneran requisitos de una HU,
+    actualiza automáticamente todos los artefactos que dependan de esos RF.
+    
+    Parámetros:
+    - proyecto: Project object
+    - hu_relacionada: "HU1", "HU2", etc.
+    - contenido_nuevo: Contenido con los nuevos RF
+    
+    Actualiza:
+    1. Todos los registros "Requisitos - HU#" con el nuevo contenido
+    2. Diagramas de flujo que usen esos RF
+    3. Diagramas de secuencia que usen esos RF
+    4. Pruebas de caja negra que usen esos RF
+    """
+    try:
+        # Extraer RF del nuevo contenido
+        rf_nuevos = extraer_rf_del_contenido(contenido_nuevo)
+        
+        # PASO 1: Actualizar todos los "Requisitos - HU#" con el contenido nuevo
+        # pero manteniendo sus requisitos_relacionados específicos por HU
+        todos_requisitos = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__startswith="Requisitos -"
+        )
+        
+        for req_art in todos_requisitos:
+            # Guardar el contenido COMPLETO actualizado
+            req_art.contenido = contenido_nuevo
+            req_art.generado_por_ia = True
+            
+            # SIEMPRE extraer los RF de ESTA HU específica del nuevo contenido
+            hu_de_este_registro = req_art.historia_usuario_relacionada
+            if hu_de_este_registro:
+                hu_numero = hu_de_este_registro.replace("HU", "").lstrip("0") or "0"
+                rf_especificos = []
+                
+                for line in contenido_nuevo.split('\n'):
+                    if line.strip().startswith("RF") and (
+                        f"[{hu_de_este_registro}]" in line or 
+                        f"[HU0{hu_numero}]" in line or 
+                        f"[HU{hu_numero}]" in line
+                    ):
+                        rf_especificos.append(line.strip())
+                
+                rf_ids = [rf.split()[0] for rf in rf_especificos if rf.split()]
+                req_art.requisitos_relacionados = rf_ids
+            
+            req_art.save()
+        
+        # PASO 2: Actualizar Diagramas de flujo que uses esos RF
+        diagramas_flujo = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__startswith="Diagrama de flujo",
+            historia_usuario_relacionada=hu_relacionada
+        )
+        
+        for diagrama in diagramas_flujo:
+            # Extraer RF del nuevo contenido de requisitos para este diagrama
+            hu_numero = hu_relacionada.replace("HU", "").lstrip("0") or "0"
+            rf_especificos = []
+            
+            for line in contenido_nuevo.split('\n'):
+                if line.strip().startswith("RF") and (
+                    f"[{hu_relacionada}]" in line or 
+                    f"[HU0{hu_numero}]" in line or 
+                    f"[HU{hu_numero}]" in line
+                ):
+                    rf_especificos.append(line.strip())
+            
+            rf_ids = [rf.split()[0] for rf in rf_especificos if rf.split()]
+            diagrama.requisitos_relacionados = rf_ids
+            diagrama.save()
+        
+        # PASO 3: Actualizar Diagramas de secuencia que usen esos RF
+        diagramas_secuencia = Artefacto.objects.filter(
+            proyecto=proyecto,
+            titulo__startswith="Diagrama de secuencia",
+            historia_usuario_relacionada=hu_relacionada
+        )
+        
+        for diagrama in diagramas_secuencia:
+            hu_numero = hu_relacionada.replace("HU", "").lstrip("0") or "0"
+            rf_especificos = []
+            
+            for line in contenido_nuevo.split('\n'):
+                if line.strip().startswith("RF") and (
+                    f"[{hu_relacionada}]" in line or 
+                    f"[HU0{hu_numero}]" in line or 
+                    f"[HU{hu_numero}]" in line
+                ):
+                    rf_especificos.append(line.strip())
+            
+            rf_ids = [rf.split()[0] for rf in rf_especificos if rf.split()]
+            diagrama.requisitos_relacionados = rf_ids
+            diagrama.save()
+        
+        # PASO 4: Actualizar Pruebas de caja negra que usen esos RF
+        pruebas = PruebacajaNegra.objects.filter(
+            proyecto=proyecto,
+            historia_usuario_relacionada=hu_relacionada
+        )
+        
+        for prueba in pruebas:
+            # Extraer los RF nuevos de esta HU
+            hu_numero = hu_relacionada.replace("HU", "").lstrip("0") or "0"
+            rf_especificos = []
+            
+            for line in contenido_nuevo.split('\n'):
+                if line.strip().startswith("RF") and (
+                    f"[{hu_relacionada}]" in line or 
+                    f"[HU0{hu_numero}]" in line or 
+                    f"[HU{hu_numero}]" in line
+                ):
+                    rf_especificos.append(line.strip())
+            
+            # Construir diccionario RF: descripción
+            rf_dict = {}
+            for rf_line in rf_especificos:
+                rf_match = re.search(r'(RF\d+)', rf_line)
+                if rf_match:
+                    rf_id = rf_match.group(1)
+                    # Limpiar descripción
+                    descripcion = re.sub(r'RF\d+\s*', '', rf_line)
+                    descripcion = re.sub(r'\s*\[HU\d+\]\s*', '', descripcion)
+                    rf_dict[rf_id] = descripcion.strip()
+            
+            prueba.requisitos_relacionados = rf_dict
+            prueba.save()
+        
+        print(f"✅ Actualización en cascada completada para {hu_relacionada}")
+        return True
+    
+    except Exception as e:
+        print(f"❌ Error en actualización en cascada: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 # ===== TIPOS DE ARTEFACTOS DEFINIDOS DIRECTAMENTE =====
 
 ARTEFACTOS_TEXTO = [
@@ -505,6 +646,35 @@ def editar_artefacto(request, artefacto_id):
             else:
                 
                 artefacto = form.save(commit=False)
+                
+                # Actualizar requisitos_relacionados si es un artefacto de Requisitos
+                if "Requisitos" in artefacto.titulo and artefacto.contenido:
+                    if "Requisitos -" in artefacto.titulo or artefacto.titulo.lower().startswith("requisitos -"):
+                        # Para requisitos por HU específica, extraer solo los de esa HU
+                        numero_hu = ""
+                        if artefacto.historia_usuario_relacionada:
+                            hu_match = str(artefacto.historia_usuario_relacionada).upper().find("HU")
+                            if hu_match >= 0:
+                                # Extraer el número de HU
+                                hu_text = str(artefacto.historia_usuario_relacionada).upper()
+                                hu_num = ''.join(filter(str.isdigit, hu_text[:hu_text.find("HU")+4]))
+                                if hu_num:
+                                    numero_hu = hu_num
+                        
+                        if numero_hu:
+                            # Filtrar requisitos solo de esta HU
+                            requisitos_hu = []
+                            lineas = artefacto.contenido.split('\n')
+                            for linea in lineas:
+                                if f"[HU{numero_hu}]" in linea.upper() or f"HU{numero_hu}" in linea.upper():
+                                    requisitos_hu.append(linea.strip())
+                            artefacto.requisitos_relacionados = requisitos_hu
+                        else:
+                            artefacto.requisitos_relacionados = extraer_rf_del_contenido(artefacto.contenido)
+                    else:
+                        # Para requisitos general, extraer todos
+                        artefacto.requisitos_relacionados = extraer_rf_del_contenido(artefacto.contenido)
+                
                 messages.success(request, '💾 Artefacto actualizado correctamente.')
 
             artefacto.save()
@@ -545,6 +715,299 @@ def eliminar_artefacto(request, artefacto_id):
     artefacto.delete()
     messages.success(request, "Artefacto eliminado correctamente.")
     return redirect('detalle_proyecto', proyecto_id=proyecto_id)
+
+# ===================== REGENERAR ARTEFACTO (AJAX) =====================
+
+@login_required
+def regenerar_artefacto_ajax(request, artefacto_id):
+    """
+    Regenera un artefacto con IA y devuelve el contenido nuevo sin navegar.
+    Responde con JSON para ser consumido por AJAX.
+    """
+    try:
+        artefacto = get_object_or_404(Artefacto, id=artefacto_id, proyecto__propietario=request.user)
+        proyecto = artefacto.proyecto
+        
+        if artefacto.titulo.lower() == "historia de usuario":
+            contenido = generar_subartefacto_con_prompt(
+                tipo="Historia de Usuario",
+                nombre_proyecto=proyecto.nombre,
+                descripcion=proyecto.descripcion,
+                usuarios_necesidades=proyecto.usuarios_necesidades or ""
+            )
+            artefacto.contenido = contenido
+            artefacto.generado_por_ia = True
+            
+            try:
+                from core.ia import extraer_requisitos  
+                requisitos = extraer_requisitos(contenido)
+                artefacto.contexto = requisitos
+            except Exception as e:
+                artefacto.contexto = "[ERROR AL EXTRAER REQUISITOS]"
+        
+        elif artefacto.titulo.lower() == "requisitos":
+            artefactos = Artefacto.objects.filter(proyecto=proyecto)
+            hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
+            
+            if not hu:
+                hu = artefactos.filter(titulo__icontains="Historia").first()
+            
+            if hu and hu.contenido and hu.contenido.strip() != "":
+                contenido = generar_subartefacto_con_prompt(
+                    tipo="Requisitos",
+                    texto=hu.contenido
+                )
+                artefacto.contenido = contenido
+                artefacto.generado_por_ia = True
+            else:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'No se encontró Historia de Usuario para regenerar Requisitos'
+                }, status=400)
+        
+        elif "Requisitos -" in artefacto.titulo or artefacto.titulo.lower().startswith("requisitos -"):
+            # Requisitos por HU específica: "Requisitos - HU1", "Requisitos - HU2", etc.
+            if artefacto.historia_usuario_relacionada:
+                # Obtener la Historia de Usuario COMPLETA (con todas las HU)
+                hu_art = Artefacto.objects.filter(
+                    proyecto=proyecto,
+                    titulo__iexact="Historia de Usuario"
+                ).first()
+                
+                if not hu_art or not hu_art.contenido:
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': 'No se encontró Historia de Usuario para regenerar Requisitos'
+                    }, status=400)
+                
+                # Extraer texto de la HU específica que se va a regenerar
+                hu = artefacto.historia_usuario_relacionada  # ej: "HU1", "HU02", "HU03", etc
+                hu_numero = hu.replace("HU", "").lstrip("0") or "0"  # ej: "1", "2", "3"
+                hu_numero_original = hu.replace("HU", "")  # ej: "1", "02", "03"
+                
+                # Obtener requisitos actuales (para mantener los de otras HU)
+                # Buscar TODOS los artefactos "Requisitos - HU#" y compilar su contenido
+                req_actual = Artefacto.objects.filter(
+                    proyecto=proyecto,
+                    titulo__iexact="Requisitos"
+                ).first()
+                
+                # Si existe artefacto general "Requisitos", usarlo
+                if req_actual and req_actual.contenido:
+                    requisitos_actuales = req_actual.contenido
+                else:
+                    # Si no existe, compilar desde todos los "Requisitos - HU#"
+                    # PERO solo extrayendo los RF de CADA HU (no duplicados)
+                    todos_req_hu = Artefacto.objects.filter(
+                        proyecto=proyecto,
+                        titulo__istartswith="Requisitos -"
+                    ).order_by('titulo')
+                    
+                    requisitos_actuales = ""
+                    hu_ya_procesados = set()
+                    
+                    for req_hu in todos_req_hu:
+                        if req_hu.contenido and req_hu.historia_usuario_relacionada:
+                            hu_id = req_hu.historia_usuario_relacionada
+                            # Solo procesar CADA HU una sola vez
+                            if hu_id not in hu_ya_procesados:
+                                hu_ya_procesados.add(hu_id)
+                                # Extraer solo los RF de esta HU específica del contenido
+                                for line in req_hu.contenido.split('\n'):
+                                    line = line.strip()
+                                    if line.startswith("RF"):
+                                        # Buscar si el RF pertenece a esta HU
+                                        if (f"[{hu_id}]" in line or 
+                                            f"[HU{hu_id.replace('HU', '')}]" in line):
+                                            requisitos_actuales += line + "\n"
+                
+                # Extraer SOLO el texto de la HU específica para regenerar
+                hu_text = ""
+                lines = hu_art.contenido.split('\n')
+                capture_this_hu = False
+                
+                for line in lines:
+                    # Buscar el inicio de HU específica (flexible: HU1, HU01, HU001, etc)
+                    if (f"{hu}:" in line or 
+                        line.strip().startswith(f"{hu}") or
+                        f"HU{hu_numero}:" in line or
+                        line.strip().startswith(f"HU{hu_numero}")):
+                        capture_this_hu = True
+                    elif capture_this_hu and line.strip() and line.strip().startswith("HU"):
+                        # Se encontró otra HU
+                        break
+                    
+                    if capture_this_hu:
+                        hu_text += line + "\n"
+                
+                hu_text = hu_text.strip()
+                
+                if not hu_text:
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': f'No se pudo extraer el texto de {hu} de la Historia de Usuario'
+                    }, status=400)
+                
+                # Usar el prompt selectivo para regenerar SOLO esta HU
+                contenido = generar_subartefacto_con_prompt(
+                    tipo="Requisitos - Regenerar HU",
+                    hu_text=hu_text,
+                    hu_numero=hu_numero,
+                    requisitos_actuales=requisitos_actuales
+                )
+                
+                # DEBUG: Imprimir lo que genera la IA
+                print(f"\n=== DEBUG REGENERAR REQUISITOS ===")
+                print(f"HU: {hu}, HU_NUMERO: {hu_numero}, HU_ORIGINAL: {hu_numero_original}")
+                print(f"HU_TEXT:\n{hu_text}")
+                print(f"\nREQUISITOS ACTUALES:\n{requisitos_actuales}")
+                print(f"\nCONTENIDO GENERADO POR IA:\n{contenido}")
+                print(f"=== FIN DEBUG ===\n")
+                
+                # Actualizar artefacto de requisitos general
+                if req_actual:
+                    req_actual.contenido = contenido
+                    req_actual.generado_por_ia = True
+                    req_actual.save()
+                
+                # Extraer RF específicos de esta HU del contenido regenerado
+                # Buscar TODOS los variantes: [HU1], [HU01], [HU001], etc
+                rf_especificos = []
+                rf_sin_formato = []  # Si no hay coincidencia con HU, aceptar cualquier RF
+                
+                for line in contenido.split('\n'):
+                    line = line.strip()
+                    if line.startswith("RF"):
+                        # Buscar cualquier variante de este HU en el RF
+                        if (f"[HU{hu_numero}]" in line or 
+                            f"[{hu}]" in line or
+                            f"[HU{hu_numero_original}]" in line or
+                            f"[HU0{hu_numero}]" in line or
+                            f"[HU00{hu_numero}]" in line or
+                            f"[HU{hu_numero.zfill(2)}]" in line or
+                            f"[HU{hu_numero.zfill(3)}]" in line):
+                            rf_especificos.append(line)
+                        elif "[HU" in line:
+                            # Es un RF pero para otra HU, ignorar
+                            pass
+                        else:
+                            # Es un RF sin indicador de HU, guardarlo como fallback
+                            rf_sin_formato.append(line)
+                
+                # Si no encontramos RF con formato correcto, usar los sin formato (fallback)
+                if not rf_especificos and rf_sin_formato:
+                    rf_especificos = rf_sin_formato[:3]  # Tomar hasta 3 requisitos sin formato
+                
+                if not rf_especificos:
+                    # Como último recurso, tomar TODOS los RF del contenido
+                    for line in contenido.split('\n'):
+                        line = line.strip()
+                        if line.startswith("RF"):
+                            rf_especificos.append(line)
+                    
+                    if not rf_especificos:
+                        print(f"ERROR: No se encontraron requisitos.\nContenido: {contenido[:500]}")
+                        return JsonResponse({
+                            'status': 'error',
+                            'message': f'No se encontraron requisitos para {hu} en el contenido generado'
+                        }, status=400)
+                
+                rf_ids = [rf.split()[0] for rf in rf_especificos if rf.split()]
+                artefacto.contenido = "\n".join(rf_especificos)
+                artefacto.requisitos_relacionados = rf_ids
+                artefacto.generado_por_ia = True
+                artefacto.save()
+                
+                # 🔄 ACTUALIZACIÓN EN CASCADA SELECTIVA (solo para esta HU)
+                actualizar_en_cascada_requisitos(proyecto, hu, contenido)
+                
+                # Retornar respuesta exitosa
+                return JsonResponse({
+                    'status': 'success',
+                    'message': f'♻️ {artefacto.titulo} regenerado correctamente',
+                    'contenido': artefacto.contenido,
+                    'requisitos_relacionados': rf_ids,
+                    'actualizado': artefacto.actualizado.strftime("%d/%m/%Y %H:%M")
+                })
+            else:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'No se encontró Historia de Usuario relacionada para regenerar Requisitos'
+                }, status=400)
+        
+        elif artefacto.titulo.lower() == "diagrama de flujo":
+            artefactos = Artefacto.objects.filter(proyecto=proyecto)
+            hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
+            
+            if not hu:
+                hu = artefactos.filter(titulo__icontains="Historia").first()
+            
+            if hu and hu.contenido and hu.contenido.strip() != "":
+                requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
+                
+                if requisitos_art and requisitos_art.contenido:
+                    contenido = generar_subartefacto_con_prompt(
+                        tipo="Diagrama de flujo",
+                        historia_usuario=hu.contenido,
+                        requisitos=requisitos_art.contenido
+                    )
+                    artefacto.requisitos_relacionados = extraer_rf_del_contenido(requisitos_art.contenido)
+                else:
+                    contenido = generar_subartefacto_con_prompt(
+                        tipo="Diagrama de flujo",
+                        historia_usuario=hu.contenido,
+                        requisitos="(Sin requisitos específicos)"
+                    )
+                    artefacto.requisitos_relacionados = []
+                
+                contenido = limpiar_mermaid(contenido)
+                artefacto.contenido = contenido
+                artefacto.generado_por_ia = True
+            else:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'No se encontró Historia de Usuario para regenerar Diagrama de Flujo'
+                }, status=400)
+        
+        else:
+            contenido = generar_subartefacto_con_prompt(
+                tipo=artefacto.titulo,
+                texto=proyecto.descripcion
+            )
+            artefacto.contenido = limpiar_mermaid(contenido)
+            artefacto.generado_por_ia = True
+        
+        artefacto.save()
+        
+        # Procesar el contenido para parse_historias si es Historia de Usuario
+        if artefacto.titulo.lower() == "historia de usuario":
+            # Parseamos las historias del contenido
+            from documentacion.utils import parse_historias_desde_texto
+            historias_parseadas = parse_historias_desde_texto(artefacto.contenido)
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': '♻️ Historia de Usuario regenerada correctamente',
+                'contenido': artefacto.contenido,
+                'historias': historias_parseadas,
+                'actualizado': artefacto.actualizado.strftime("%d/%m/%Y %H:%M")
+            })
+        else:
+            return JsonResponse({
+                'status': 'success',
+                'message': f'♻️ {artefacto.titulo} regenerado correctamente',
+                'contenido': artefacto.contenido,
+                'actualizado': artefacto.actualizado.strftime("%d/%m/%Y %H:%M")
+            })
+    
+    except Exception as e:
+        import traceback
+        error_msg = str(e)
+        print(f"❌ Error regenerando artefacto: {error_msg}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'status': 'error',
+            'message': f'❌ Error al regenerar: {error_msg}'
+        }, status=500)
 
 # ===================== VER ARTEFACTOS =====================
 
@@ -2834,7 +3297,7 @@ NOTAS: Basado en los requisitos anteriores, diseña la infraestructura de despli
                     texto=contexto_c4
                 )
             
-            contenido = limpiar_mermaid(contenido)
+            contenido = limpiar_mermaid(contenido) # pyright: ignore[reportPossiblyUnboundVariable]
             diagrama.contenido = contenido
             diagrama.save()
             regenerados += 1

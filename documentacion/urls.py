@@ -35,6 +35,7 @@ urlpatterns = [
     path('diagrama-secuencia/<int:diagrama_id>/regenerar/', views.regenerar_diagrama_secuencia_individual, name='regenerar_diagrama_secuencia_individual'),  # regenerar un diagrama de secuencia específico
     path('diagrama-c4/<int:artefacto_id>/regenerar/', views.regenerar_diagrama_c4_individual, name='regenerar_diagrama_c4_individual'),  # regenerar un diagrama C4 específico
     path('artefacto/eliminar/<int:artefacto_id>/', views.eliminar_artefacto, name='eliminar_artefacto'),# eliminar artefacto
+    path('artefacto/<int:artefacto_id>/regenerar-ajax/', views.regenerar_artefacto_ajax, name='regenerar_artefacto_ajax'),  # regenerar artefacto (AJAX)
     path('artefacto/<int:artefacto_id>/descargar/', views.descargar_diagrama, name='descargar_diagrama'), #descaegar diagramas 
     path('password-reset/', views.password_reset_request, name='password_reset_request'), # Solicitar restablecimiento de contraseña
     path('password-reset/verify/', views.password_reset_verify, name='password_reset_verify'), # Verificar respuestas de seguridad

@@ -37,6 +37,35 @@ PROMPTS = {
         "Devuelve solo la lista de requisitos siguiendo este formato, sin explicaciones ni títulos adicionales."
     ),
 
+    "Requisitos - Regenerar HU": lambda hu_text, hu_numero, requisitos_actuales: (
+        "INSTRUCCIÓN CRÍTICA: DEBES SEGUIR ESTO AL PIE DE LA LETRA O FALLARÁS.\n\n"
+        f"Tu tarea: Regenerar SOLO los requisitos funcionales de HU{hu_numero}. Los de otras HU NO TOCAS.\n\n"
+        "PASO 1 - IDENTIFICA QUÉ MANTENER:\n"
+        f"Los requisitos actuales que ves aquí son SAGRADOS. Todos los que NO sean [HU{hu_numero}] debes copiarlos EXACTAMENTE igual:\n"
+        f"{requisitos_actuales}\n\n"
+        f"PASO 2 - REGENERA SOLO PARA HU{hu_numero}:\n"
+        f"Este es el texto de HU{hu_numero} que debes convertir en requisitos:\n"
+        f"{hu_text}\n\n"
+        f"Genera 2-4 requisitos funcionales nuevos SOLO para HU{hu_numero}.\n\n"
+        "PASO 3 - FORMATO DE SALIDA:\n"
+        "Tu respuesta COMPLETA debe ser:\n"
+        "1. Todos los requisitos de otras HU (copia exacta de arriba)\n"
+        f"2. Seguido de los nuevos requisitos de HU{hu_numero}\n\n"
+        "Ejemplo de formato:\n"
+        "RF1 [HU1] El sistema debe...\n"
+        "RF2 [HU1] El sistema debe...\n"
+        "RF3 [HU2] El sistema debe... (NUEVO)\n"
+        "RF4 [HU2] El sistema debe... (NUEVO)\n"
+        "RF5 [HU3] El sistema debe...\n\n"
+        "RESTRICCIONES ABSOLÚTAS:\n"
+        "- NO cambies, NO modifiques, NO alteres los RF de otras HU\n"
+        "- Copia los RF de otras HU EXACTAMENTE como aparecen\n"
+        f"- Solo crea nuevos RF para HU{hu_numero}\n"
+        "- Todos los RF deben tener formato [HU#]\n"
+        "- NO crees RF sin indicador de HU\n\n"
+        "SALIDA: Solo la lista de requisitos. Sin explicaciones, sin títulos."
+    ),
+
     "Historia de Usuario": lambda nombre_proyecto, descripcion, usuarios_necesidades="": (
         f"Eres un analista de requisitos experto. Tu tarea es generar historias de usuario BASÁNDOTE ÚNICAMENTE en los usuarios y necesidades específicas que se te proporcionan.\n\n"
         f"PROYECTO: {nombre_proyecto}\n"

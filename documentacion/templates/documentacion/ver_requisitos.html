@@ -144,8 +144,8 @@
                 <h5 class="requisito-title">{{ requisito.historia_usuario_relacionada }}</h5>
                 <div class="requisito-actions">
                     <span class="requisito-badge">{{ requisito.requisitos_relacionados|length }} RF</span>
-                    <a href="{% url 'ver_artefacto' requisito.id %}" class="btn btn-outline-primary btn-sm">👁️ Ver</a>
                     <a href="{% url 'editar_artefacto' requisito.id %}" class="btn btn-outline-warning btn-sm">✏️ Editar</a>
+                    <button type="button" class="btn btn-outline-info btn-sm" onclick="regenerarRequisito(this, {{ requisito.id }})">♻️ Regenerar</button>
                 </div>
             </div>
             
@@ -171,4 +171,191 @@
         {% endfor %}
     </div>
 </div>
+
+<script>
+function regenerarRequisito(btnElement, artefactoId) {
+    if (confirm('⚠️ ¿Desea regenerar este Requisito con IA?\n\nEsto reemplazará el contenido actual.')) {
+        // Mostrar indicador de carga
+        const textOriginal = btnElement.innerHTML;
+        btnElement.disabled = true;
+        btnElement.innerHTML = '⏳...';
+        
+        // Enviar AJAX para regenerar
+        fetch(`/artefacto/${artefactoId}/regenerar-ajax/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.message || 'Error desconocido');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                // Actualizar la tarjeta sin recargar la página
+                actualizarRequisito(btnElement, artefactoId, data);
+                mostrarNotificacion(data.message, 'success');
+            } else {
+                mostrarNotificacion(data.message || 'Error al regenerar', 'error');
+                btnElement.disabled = false;
+                btnElement.innerHTML = textOriginal;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarNotificacion('❌ ' + error.message, 'error');
+            btnElement.disabled = false;
+            btnElement.innerHTML = textOriginal;
+        });
+    }
+}
+
+function actualizarRequisito(btnElement, artefactoId, data) {
+    // Obtener la tarjeta del requisito
+    const card = btnElement.closest('.requisito-card');
+    if (!card) return;
+    
+    // Obtener el número de HU de la tarjeta
+    const titleElement = card.querySelector('.requisito-title');
+    if (!titleElement) return;
+    
+    const huText = titleElement.textContent.trim(); // Ej: "HU1" o "Historia de Usuario - HU1"
+    
+    // Actualizar el contenido
+    const contenidoDiv = card.querySelector('.requisito-content');
+    if (contenidoDiv && data.contenido) {
+        // Parsear el contenido para extraer requisitos de ESTA HU específicamente
+        const requisitos = extraerRequisitosDelContenido(data.contenido, huText);
+        
+        // Actualizar el badge de cantidad
+        const badge = card.querySelector('.requisito-badge');
+        if (badge) {
+            badge.textContent = `${requisitos.length} RF`;
+        }
+        
+        // Actualizar el contenido HTML
+        if (requisitos.length > 0) {
+            contenidoDiv.innerHTML = `
+                <ul class="list-unstyled">
+                    ${requisitos.map(rf => `<li>✓ ${escapeHtml(rf)}</li>`).join('')}
+                </ul>
+            `;
+        } else {
+            contenidoDiv.innerHTML = '<p class="text-muted mb-0">No se encontraron requisitos específicos.</p>';
+        }
+    }
+    
+    // Restaurar botón
+    btnElement.disabled = false;
+    btnElement.innerHTML = '♻️ Regenerar';
+}
+
+function extraerRequisitosDelContenido(contenido, huText) {
+    // Extraer el número de HU del texto
+    const huMatch = huText.match(/HU(\d+)/i);
+    if (!huMatch) return [];
+    
+    const numeroHU = huMatch[1];
+    const numeroHUPadded = numeroHU.padStart(2, '0'); // "1" -> "01"
+    
+    // Patrones para buscar requisitos asociados a esta HU
+    const patrones = [
+        new RegExp(`\\[HU${numeroHUPadded}\\]`, 'i'),
+        new RegExp(`\\[HU${numeroHU}\\]`, 'i'),
+        new RegExp(`\\bHU${numeroHUPadded}\\b`, 'i'),
+        new RegExp(`\\bHU${numeroHU}\\b`, 'i')
+    ];
+    
+    const requisitos = [];
+    const lineas = contenido.split('\n');
+    
+    lineas.forEach(linea => {
+        linea = linea.trim();
+        if (!linea) return;
+        
+        // Verificar si esta línea contiene algún patrón de esta HU
+        let esDeEstaHU = false;
+        for (let patron of patrones) {
+            if (patron.test(linea)) {
+                esDeEstaHU = true;
+                break;
+            }
+        }
+        
+        if (esDeEstaHU) {
+            // Limpiar el requisito
+            let requisito = linea
+                .replace(/^\[HU\d{1,3}\]\s*/, '') // Eliminar [HU##]
+                .replace(/^\bHU\d{1,3}\b\s*/, '') // Eliminar HU##
+                .replace(/^(RF\d+\s*[-:]?\s*|[-•*✓]\s*)/, '') // Eliminar RF## o símbolos
+                .trim();
+            
+            if (requisito) {
+                requisitos.push(requisito);
+            }
+        }
+    });
+    
+    return requisitos;
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function mostrarNotificacion(mensaje, tipo) {
+    // Crear notificación flotante
+    const notificacionDiv = document.createElement('div');
+    notificacionDiv.className = `alert alert-${tipo === 'success' ? 'success' : tipo === 'warning' ? 'warning' : 'danger'} alert-dismissible fade show`;
+    notificacionDiv.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 350px;
+        z-index: 1000;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+    notificacionDiv.setAttribute('role', 'alert');
+    notificacionDiv.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    `;
+    
+    document.body.appendChild(notificacionDiv);
+    
+    // Auto-remove después de 5 segundos
+    setTimeout(() => {
+        notificacionDiv.remove();
+    }, 5000);
+}
+</script>
 {% endblock %}
