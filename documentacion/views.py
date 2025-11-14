@@ -207,7 +207,7 @@ def actualizar_en_cascada_requisitos(proyecto, hu_relacionada, contenido_nuevo):
 ARTEFACTOS_TEXTO = [
     "Historia de Usuario",
     "Requisitos",
-    "caja negra"
+    "Caja Negra"
 ]
 
 ARTEFACTOS_MERMAID = [
@@ -255,7 +255,7 @@ def crear_proyecto(request):
             fases_con_subartefactos = {
                 "Análisis": ["Historia de Usuario", "Requisitos"],
                 "Diseño": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de Entidad-Relacion"],
-                "Pruebas": ["caja negra"],
+                "Pruebas": ["Caja Negra"],
                 "Despliegue": ["Diagrama de Contexto C4", "Diagrama de Contenedor C4", "Diagrama de Componente C4", "Diagrama de Despliegue C4"]
             }
 
@@ -364,7 +364,7 @@ def detalle_proyecto(request, proyecto_id):
     orden_subartefactos = {
         "Análisis": ["Historia de Usuario", "Requisitos"],
         "Diseño": ["Diagrama de flujo", "Diagrama de secuencia", "Diagrama de Entidad-Relacion"],
-        "Pruebas": ["caja negra"],
+        "Pruebas": ["Caja Negra"],
         "Despliegue": ["Diagrama de Contexto C4", "Diagrama de Contenedor C4", "Diagrama de Componente C4", "Diagrama de Despliegue C4"]
     }
 
