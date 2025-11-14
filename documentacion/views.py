@@ -943,15 +943,26 @@ def regenerar_artefacto_ajax(request, artefacto_id):
                 hu = artefactos.filter(titulo__icontains="Historia").first()
             
             if hu and hu.contenido and hu.contenido.strip() != "":
+                # Obtener requisitos: primero intenta el artefacto general, si no existe, compila desde HU
                 requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
                 
                 if requisitos_art and requisitos_art.contenido:
+                    requisitos_contenido = requisitos_art.contenido
+                else:
+                    # Si no existe artefacto general, compilar desde todos los "Requisitos - HU#"
+                    todos_req_hu = artefactos.filter(titulo__istartswith="Requisitos -").order_by('titulo')
+                    requisitos_contenido = ""
+                    for req_hu in todos_req_hu:
+                        if req_hu.contenido:
+                            requisitos_contenido += req_hu.contenido + "\n"
+                
+                if requisitos_contenido.strip():
                     contenido = generar_subartefacto_con_prompt(
                         tipo="Diagrama de flujo",
                         historia_usuario=hu.contenido,
-                        requisitos=requisitos_art.contenido
+                        requisitos=requisitos_contenido
                     )
-                    artefacto.requisitos_relacionados = extraer_rf_del_contenido(requisitos_art.contenido)
+                    artefacto.requisitos_relacionados = extraer_rf_del_contenido(requisitos_contenido)
                 else:
                     contenido = generar_subartefacto_con_prompt(
                         tipo="Diagrama de flujo",
@@ -967,6 +978,51 @@ def regenerar_artefacto_ajax(request, artefacto_id):
                 return JsonResponse({
                     'status': 'error',
                     'message': 'No se encontró Historia de Usuario para regenerar Diagrama de Flujo'
+                }, status=400)
+        
+        elif artefacto.titulo.lower() == "diagrama de secuencia":
+            artefactos = Artefacto.objects.filter(proyecto=proyecto)
+            hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
+            
+            if not hu:
+                hu = artefactos.filter(titulo__icontains="Historia").first()
+            
+            if hu and hu.contenido and hu.contenido.strip() != "":
+                # Obtener requisitos: primero intenta el artefacto general, si no existe, compila desde HU
+                requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
+                
+                if requisitos_art and requisitos_art.contenido:
+                    requisitos_contenido = requisitos_art.contenido
+                else:
+                    # Si no existe artefacto general, compilar desde todos los "Requisitos - HU#"
+                    todos_req_hu = artefactos.filter(titulo__istartswith="Requisitos -").order_by('titulo')
+                    requisitos_contenido = ""
+                    for req_hu in todos_req_hu:
+                        if req_hu.contenido:
+                            requisitos_contenido += req_hu.contenido + "\n"
+                
+                if requisitos_contenido.strip():
+                    contenido = generar_subartefacto_con_prompt(
+                        tipo="Diagrama de secuencia",
+                        historia_usuario=hu.contenido,
+                        requisitos=requisitos_contenido
+                    )
+                    artefacto.requisitos_relacionados = extraer_rf_del_contenido(requisitos_contenido)
+                else:
+                    contenido = generar_subartefacto_con_prompt(
+                        tipo="Diagrama de secuencia",
+                        historia_usuario=hu.contenido,
+                        requisitos="(Sin requisitos específicos)"
+                    )
+                    artefacto.requisitos_relacionados = []
+                
+                contenido = limpiar_mermaid(contenido)
+                artefacto.contenido = contenido
+                artefacto.generado_por_ia = True
+            else:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'No se encontró Historia de Usuario para regenerar Diagrama de Secuencia'
                 }, status=400)
         
         else:
@@ -1326,12 +1382,35 @@ def regenerar_diagrama_entidad_relacion(request, proyecto_id):
             titulo__in=["Requisitos"]
         ).first()
         
-        if not requisitos_art:
-            requisitos_art = artefactos.filter(
+        if requisitos_art and requisitos_art.contenido:
+            requisitos_texto = requisitos_art.contenido
+        else:
+            # Si no existe artefacto general, compilar TODOS los requisitos de "Requisitos - HU#"
+            todos_req_hu = artefactos.filter(
                 titulo__startswith="Requisitos -"
-            ).first()
-        
-        # Recopilar todos los diagramas de flujo
+            ).order_by('titulo')
+            
+            requisitos_texto = ""
+            hu_ya_procesados = set()
+            
+            for req_hu in todos_req_hu:
+                if req_hu.contenido and req_hu.historia_usuario_relacionada:
+                    hu_id = req_hu.historia_usuario_relacionada
+                    # Solo procesar CADA HU una sola vez
+                    if hu_id not in hu_ya_procesados:
+                        hu_ya_procesados.add(hu_id)
+                        # Extraer solo los RF de esta HU específica
+                        for line in req_hu.contenido.split('\n'):
+                            line = line.strip()
+                            if line.startswith("RF"):
+                                # Buscar si el RF pertenece a esta HU
+                                if (f"[{hu_id}]" in line or 
+                                    f"[HU{hu_id.replace('HU', '')}]" in line):
+                                    requisitos_texto += line + "\n"
+            
+            if not requisitos_texto:
+                requisitos_texto = "No hay requisitos"
+
         diagramas_flujo = Artefacto.objects.filter(
             proyecto=proyecto,
             titulo__startswith="Diagrama de flujo"
@@ -2285,10 +2364,34 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
                 titulo__in=["Requisitos"]
             ).first()
             
-            if not requisitos_art:
-                requisitos_art = artefactos.filter(
+            if requisitos_art and requisitos_art.contenido:
+                requisitos_texto = requisitos_art.contenido
+            else:
+                # Si no existe artefacto general, compilar TODOS los requisitos de "Requisitos - HU#"
+                todos_req_hu = artefactos.filter(
                     titulo__startswith="Requisitos -"
-                ).first()
+                ).order_by('titulo')
+                
+                requisitos_texto = ""
+                hu_ya_procesados = set()
+                
+                for req_hu in todos_req_hu:
+                    if req_hu.contenido and req_hu.historia_usuario_relacionada:
+                        hu_id = req_hu.historia_usuario_relacionada
+                        # Solo procesar CADA HU una sola vez
+                        if hu_id not in hu_ya_procesados:
+                            hu_ya_procesados.add(hu_id)
+                            # Extraer solo los RF de esta HU específica
+                            for line in req_hu.contenido.split('\n'):
+                                line = line.strip()
+                                if line.startswith("RF"):
+                                    # Buscar si el RF pertenece a esta HU
+                                    if (f"[{hu_id}]" in line or 
+                                        f"[HU{hu_id.replace('HU', '')}]" in line):
+                                        requisitos_texto += line + "\n"
+                
+                if not requisitos_texto:
+                    requisitos_texto = "No hay requisitos"
             
             # Recopilar todos los diagramas de flujo
             diagramas_flujo = Artefacto.objects.filter(
@@ -2305,9 +2408,6 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
             # Construir contexto completo
             contexto_flujos = "\n---\n".join([f"## {d.titulo}\n{d.contenido}" for d in diagramas_flujo]) if diagramas_flujo else "No hay diagramas de flujo"
             contexto_secuencias = "\n---\n".join([f"## {d.titulo}\n{d.contenido}" for d in diagramas_secuencia]) if diagramas_secuencia else "No hay diagramas de secuencia"
-            
-            # Construir el contexto de requisitos
-            requisitos_texto = requisitos_art.contenido if requisitos_art else "No hay requisitos"
             
             # Construir el contexto de historias de usuario con diagramas
             historias_completo = f"""
