@@ -45,6 +45,7 @@ class SecurityQuestions(models.Model):
 class Project(models.Model):
     nombre: models.CharField = models.CharField(max_length=100)
     descripcion: models.TextField = models.TextField(blank=True)
+    usuarios_necesidades: models.TextField = models.TextField(blank=True, null=True, help_text="Usuarios finales y sus necesidades específicas")
     propietario: models.ForeignKey = models.ForeignKey(User, on_delete=models.CASCADE, related_name='proyectos')
     creado: models.DateTimeField = models.DateTimeField(auto_now_add=True)
     actualizado: models.DateTimeField = models.DateTimeField(auto_now=True)

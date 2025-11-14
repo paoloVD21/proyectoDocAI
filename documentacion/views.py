@@ -108,6 +108,7 @@ def crear_proyecto(request):
         if form.is_valid():
             proyecto = form.save(commit=False)
             proyecto.propietario = request.user
+            print(f"[DEBUG] usuarios_necesidades recibido: {form.cleaned_data.get('usuarios_necesidades')}")
             proyecto.save()
 
             fases_con_subartefactos = {
@@ -322,19 +323,22 @@ def detalle_proyecto(request, proyecto_id):
         ]
     ).exists()
     
+    # Verificar si C4 está desbloqueado (necesita TODOS los diagramas de Diseño)
+    c4_desbloqueado = todos_diagramas_diseño_validos
+    
     # Determinar qué fases están desbloqueadas
     # Fase Análisis: siempre desbloqueada
     # Fase Diseño: 
     #   - Diagrama de Flujo: desbloqueado si hay HU + Requisitos
     #   - Otros diagramas: desbloqueados si hay Diagrama de Flujo
     # Fase Pruebas: desbloqueada solo si hay TODOS los diagramas de Diseño Y Requisitos existe
-    # Fase Despliegue: desbloqueada SOLO si existen pruebas de Caja Negra
+    # Fase Despliegue: desbloqueada SOLO si existen TODOS los diagramas C4 (Contexto, Contenedor, Componente, Despliegue)
     
     fases_desbloqueadas = {
         "Análisis": True,
         "Diseño": hu_con_requisitos and requisitos_generados and requisitos_existe,
         "Pruebas": todos_diagramas_diseño_validos,
-        "Despliegue": pruebas_caja_negra_generadas
+        "Despliegue": diagramas_c4_generados
     }
     
     return render(request, 'documentacion/detalle_proyecto.html', {
@@ -352,7 +356,8 @@ def detalle_proyecto(request, proyecto_id):
         'todos_diagramas_diseño': todos_diagramas_diseño_validos,
         'fases_desbloqueadas': fases_desbloqueadas,
         'pruebas_caja_negra_generadas': pruebas_caja_negra_generadas,
-        'diagramas_c4_generados': diagramas_c4_generados
+        'diagramas_c4_generados': diagramas_c4_generados,
+        'c4_desbloqueado': c4_desbloqueado
     })
 
 # ===================== CREAR Y EDITA ARTEFACTOS =====================
@@ -414,7 +419,8 @@ def editar_artefacto(request, artefacto_id):
                         contenido = generar_subartefacto_con_prompt(
                             tipo="Historia de Usuario",
                             nombre_proyecto=proyecto.nombre,
-                            descripcion=proyecto.descripcion
+                            descripcion=proyecto.descripcion,
+                            usuarios_necesidades=proyecto.usuarios_necesidades or ""
                         )
                         artefacto.contenido = contenido
                         artefacto.generado_por_ia = True
@@ -1384,10 +1390,12 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
         
         # Si no existe, generarla
         try:
+            print(f"[DEBUG] Generando HU con usuarios_necesidades: {proyecto.usuarios_necesidades}")
             contenido = generar_subartefacto_con_prompt(
                 tipo="Historia de Usuario",
                 nombre_proyecto=proyecto.nombre,
-                descripcion=proyecto.descripcion
+                descripcion=proyecto.descripcion,
+                usuarios_necesidades=proyecto.usuarios_necesidades or ""
             )
             
             # Extraer requisitos automáticamente

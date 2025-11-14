@@ -319,14 +319,20 @@
                                                    onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
                                                     ✓ 🏗️ Diagramas C4
                                                 </a>
-                                            {% else %}
+                                            {% elif c4_desbloqueado %}
                                                 <a href="{% url 'generar_artefacto' proyecto.id sub.nombre %}" 
                                                    class="btn w-100 text-truncate" style="background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; font-weight: 500; transition: all 0.2s; text-decoration: none;"
                                                    title="Generar Diagramas C4"
                                                    onmouseover="this.style.backgroundColor='rgba(255,255,255,0.25)'; this.style.transform='translateX(4px)';"
                                                    onmouseout="this.style.backgroundColor='rgba(255,255,255,0.15)'; this.style.transform='translateX(0)';">
-                                                    ✓ 🏗️ Diagramas C4
+                                                    🔓 🏗️ Diagramas C4
                                                 </a>
+                                            {% else %}
+                                                <button class="btn w-100 text-truncate" disabled 
+                                                    style="background-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; cursor: not-allowed;"
+                                                    title="Completa todos los Diagramas de Diseño primero (Flujo, Secuencia, Entidad-Relación)">
+                                                    🔒 🏗️ Diagramas C4
+                                                </button>
                                             {% endif %}
                                         {% endif %}
                                     {% elif pruebas_caja_negra_generadas %}
@@ -340,7 +346,7 @@
                                     {% else %}
                                         <button class="btn w-100 text-truncate" disabled 
                                             style="background-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 0.75rem; padding: 10px 12px; cursor: not-allowed;"
-                                            title="Completa las pruebas de Caja Negra primero">
+                                            title="Completa los Diagramas de Diseño primero">
                                             ✗ {{ sub.nombre }}
                                         </button>
                                     {% endif %}

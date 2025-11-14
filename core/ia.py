@@ -37,8 +37,17 @@ PROMPTS = {
         "Devuelve solo la lista de requisitos siguiendo este formato, sin explicaciones ni títulos adicionales."
     ),
 
-    "Historia de Usuario": lambda nombre_proyecto, descripcion: (
-        f"Dame historias de usuario enumeradas con HU y el número secuencial para un proyecto de software llamado '{nombre_proyecto}' y con la siguiente descripción '{descripcion}'. "
+    "Historia de Usuario": lambda nombre_proyecto, descripcion, usuarios_necesidades="": (
+        f"Eres un analista de requisitos experto. Tu tarea es generar historias de usuario BASÁNDOTE ÚNICAMENTE en los usuarios y necesidades específicas que se te proporcionan.\n\n"
+        f"PROYECTO: {nombre_proyecto}\n"
+        f"DESCRIPCIÓN: {descripcion}\n\n" +
+        (f"USUARIOS Y SUS NECESIDADES (ESTOS SON LOS ÚNICOS USUARIOS DEL SISTEMA):\n{usuarios_necesidades}\n\n" if usuarios_necesidades.strip() else "ADVERTENCIA: No se proporcionaron usuarios. Solicita que se definan primero.\n\n") +
+        "INSTRUCCIONES CRÍTICAS:\n"
+        "1. Cada historia de usuario DEBE reflejar las necesidades específicas de ese usuario\n"
+        "2. NO inventes usuarios, roles ni necesidades que no estén listados arriba\n"
+        "3. Enumera cada historia con HU seguido de número secuencial (HU1, HU2, HU3, etc.)\n"
+        "4. Redacta en lenguaje natural y simple, como lo haría un usuario común, sin tecnicismos\n"
+        "5. Cada HU debe ser específica y verificable ademas que no se debe tener dos usuarios en un mismo HU\n\n"
         "Con la estructura: Como [rol], Quiero [acción], Para [beneficio]. No le des formato a la respuesta. Ni uses lenguaje técnico si no que sea como un usuario común."
     ),
 

@@ -62,21 +62,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="needs-list list-group"></div>
                 </div>
-                <div class="user-processes">
-                    <label>Procesos Principales</label>
-                    <div class="input-group mb-2">
-                        <input type="text" class="form-control process-input" placeholder="¿Qué proceso realiza este usuario?">
-                        <button type="button" class="btn btn-outline-success add-process-btn">
-                            <i class="fas fa-plus"></i> Agregar
-                        </button>
-                    </div>
-                    <div class="processes-list list-group"></div>
-                </div>
+
             </div>
         `;
 
         usuariosList.appendChild(userDiv);
-        usuariosData[usuario] = { necesidades: [], procesos: [] };
+        usuariosData[usuario] = { necesidades: [] };
 
         // Add needs functionality
         const needInput = userDiv.querySelector('.need-input');
@@ -95,25 +86,6 @@ document.addEventListener('DOMContentLoaded', function() {
             needInput.classList.remove('is-invalid');
             needInput.classList.remove('is-valid');
             needInput.focus();
-        });
-
-        // Add processes functionality
-        const processInput = userDiv.querySelector('.process-input');
-        const addProcessBtn = userDiv.querySelector('.add-process-btn');
-        const processesList = userDiv.querySelector('.processes-list');
-
-        addProcessBtn.addEventListener('click', function() {
-            const process = processInput.value.trim();
-            if (!process) {
-                showInputError(processInput, 'Por favor ingrese un proceso');
-                return;
-            }
-            addProcess(usuario, process, processesList);
-            // Limpiar el input de proceso y remover clases de validación
-            processInput.value = '';
-            processInput.classList.remove('is-invalid');
-            processInput.classList.remove('is-valid');
-            processInput.focus();
         });
 
         // Delete user functionality
@@ -152,55 +124,23 @@ document.addEventListener('DOMContentLoaded', function() {
         updateHiddenFields();
     }
 
-    function addProcess(usuario, process, listElement) {
-        // Validar y limpiar la entrada
-        process = process.trim();
-        if (!process) return;
-
-        const li = document.createElement('div');
-        li.className = 'list-group-item d-flex justify-content-between align-items-center';
-        li.innerHTML = `
-            <span>${process}</span>
-            <button type="button" class="btn btn-outline-danger btn-sm">×</button>
-        `;
-
-        listElement.appendChild(li);
-        usuariosData[usuario].procesos.push(process);
-
-        li.querySelector('button').addEventListener('click', function() {
-            li.remove();
-            usuariosData[usuario].procesos = usuariosData[usuario].procesos.filter(p => p !== process);
-            updateHiddenFields();
-        });
-
-        updateHiddenFields();
-    }
-
     function updateHiddenFields() {
         const usuarios = Object.keys(usuariosData);
-        document.getElementById('usuarios_finales_hidden').value = usuarios.join('\n');
-
-        let necesidades = '';
-        let procesos = '';
-
-        // Asegurarse de que procesamos cada usuario
+        
+        // Guardar usuarios y necesidades en un texto comprensible
+        let usuariosNecesidades = '';
         for (const usuario of usuarios) {
-            // Siempre agregar la sección del usuario, incluso si está vacía
-            necesidades += `[${usuario}]\n`;
+            usuariosNecesidades += `${usuario}:\n`;
             if (usuariosData[usuario].necesidades.length > 0) {
-                necesidades += usuariosData[usuario].necesidades.join('\n');
+                usuariosNecesidades += usuariosData[usuario].necesidades.map(n => `  - ${n}`).join('\n');
             }
-            necesidades += '\n\n';
-
-            procesos += `[${usuario}]\n`;
-            if (usuariosData[usuario].procesos.length > 0) {
-                procesos += usuariosData[usuario].procesos.join('\n');
-            }
-            procesos += '\n\n';
+            usuariosNecesidades += '\n\n';
         }
 
-        document.getElementById('necesidades_usuarios_hidden').value = necesidades.trim();
-        document.getElementById('procesos_principales_hidden').value = procesos.trim();
+        const hiddenField = document.getElementById('id_usuarios_necesidades');
+        if (hiddenField) {
+            hiddenField.value = usuariosNecesidades.trim();
+        }
     }
 
     // Form submission with validation
@@ -238,10 +178,6 @@ document.addEventListener('DOMContentLoaded', function() {
         for (const usuario of usuarios) {
             if (usuariosData[usuario].necesidades.length === 0) {
                 mensajesError.push(`El usuario "${usuario}" debe tener al menos una necesidad`);
-                usuariosValidos = false;
-            }
-            if (usuariosData[usuario].procesos.length === 0) {
-                mensajesError.push(`El usuario "${usuario}" debe tener al menos un proceso`);
                 usuariosValidos = false;
             }
         }

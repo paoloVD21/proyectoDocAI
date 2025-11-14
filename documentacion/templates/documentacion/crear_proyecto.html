@@ -48,23 +48,13 @@
                     {% endif %}
                 </div>
 
-                <div class="form-group mb-4">
-                    <div class="field-label">
-                        {{ form.objetivo_principal.label_tag }}
-                    </div>
-                    {{ form.objetivo_principal|add_class:"form-control"|attr:"placeholder:¿Qué problema específico resolverá este proyecto?"|attr:"required:required" }}
-                    {% if form.objetivo_principal.errors %}
-                        <div class="text-danger small mt-1">{{ form.objetivo_principal.errors }}</div>
-                    {% endif %}
-                </div>
-
                 <!-- Usuarios y Necesidades -->
-                <h5 class="section-title mb-4">Usuarios</h5>
+                <h5 class="section-title mb-4">Usuarios y sus Necesidades</h5>
                 <div id="usuarios-container">
                     <div class="user-section">
                         <div class="form-group">
                             <div class="field-label">
-                                {{ form.usuarios_finales.label_tag }}
+                                <label>Agregar Usuarios del Sistema</label>
                                 <span class="help-icon" data-bs-toggle="tooltip" data-bs-placement="right" 
                                       title="Define los tipos de usuarios que interactuarán con el sistema">ⓘ</span>
                             </div>
@@ -81,12 +71,8 @@
                     </div>
                 </div>
 
-
-
-                <!-- Hidden fields para almacenar datos -->
-                <input type="hidden" name="usuarios_finales" id="usuarios_finales_hidden">
-                <input type="hidden" name="necesidades_usuarios" id="necesidades_usuarios_hidden">
-                <input type="hidden" name="procesos_principales" id="procesos_principales_hidden">
+                <!-- Campo oculto para almacenar usuarios y necesidades -->
+                {{ form.usuarios_necesidades }}
 
                 <!-- Botón para crear proyecto -->
                 <div class="mt-4 text-center">
@@ -100,5 +86,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/crear_proyecto.js' %}"></script>
+<script src="{% static 'js/crear_proyecto.js' %}?v=1.1"></script>
 {% endblock %}

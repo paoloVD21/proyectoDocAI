@@ -87,9 +87,15 @@ class ProjectForm(forms.ModelForm):
         })
     )
 
+    usuarios_necesidades = forms.CharField(
+        label='Usuarios y Necesidades',
+        required=False,
+        widget=forms.HiddenInput()
+    )
+
     class Meta:
         model = Project
-        fields = ['nombre', 'descripcion']
+        fields = ['nombre', 'descripcion', 'usuarios_necesidades']
 
 # ===== validadcion proyecto ============
     def clean_nombre(self):
