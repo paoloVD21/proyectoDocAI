@@ -1,84 +1,80 @@
 .user-section {
     background-color: #ffffff;
     border: 1px solid #e0e0e0;
-    border-radius: 16px;
+    border-radius: 8px;
     padding: 0;
-    margin-bottom: 40px;
-    box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+    margin-bottom: 0;
+    margin-top: 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     transition: all 0.3s ease;
     overflow: hidden;
     position: relative;
+    width: 100%;
 }
 
 .user-section:hover {
-    box-shadow: 0 8px 16px rgba(0,0,0,0.12);
-    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    transform: translateY(-1px);
 }
 
 .user-section .user-header {
-    background: linear-gradient(135deg, #4a90e2 0%, #1e40af 100%);
+    background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
     color: white;
-    padding: 35px 35px;
+    padding: 8px 12px;
     position: relative;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    border-bottom: 3px solid rgba(0,0,0,0.1);
-}
-
-.user-section .user-header {
+    box-shadow: none;
+    border-bottom: none;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 30px 35px;
-    background: linear-gradient(135deg, #4a90e2 0%, #1e40af 100%);
-    border-bottom: 3px solid rgba(0,0,0,0.1);
 }
 
 .user-section .user-header h6 {
-    font-weight: 800;
+    font-weight: 600;
     margin: 0;
-    font-size: 2.8rem;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.25);
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
+    font-size: 0.95rem;
+    text-shadow: none;
+    letter-spacing: 0;
+    text-transform: none;
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 8px;
     line-height: 1;
     color: white;
     flex-grow: 1;
 }
 
 .user-section .user-header h6 i {
-    font-size: 2.5rem;
+    font-size: 1rem;
     color: rgba(255, 255, 255, 0.9);
 }
 
 .user-section .user-header .delete-user-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     color: #fff;
-    width: 50px;
-    height: 50px;
-    border-radius: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
-    transition: all 0.3s ease;
+    font-size: 1rem;
+    transition: all 0.2s ease;
     padding: 0;
-    margin-left: 20px;
+    margin-left: 12px;
     flex-shrink: 0;
 }
 
 .user-section .user-header .delete-user-btn:hover {
-    background: rgba(220, 53, 69, 0.9);
+    background: rgba(220, 53, 69, 0.85);
     border-color: #fff;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transform: scale(1.05);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .user-section > div:not(.user-header) {
-    padding: 35px;
+    padding: 4px;
 }
 
 .user-content {
@@ -89,8 +85,7 @@
     background-color: #f8f9fa;
     border-radius: 10px;
     padding: 25px;
-    margin-top: 25px;
-    border-left: 5px solid;
+    margin-top: 8px;
     box-shadow: 0 3px 10px rgba(0,0,0,0.03);
     transition: all 0.3s ease;
     position: relative;
@@ -104,14 +99,12 @@
 }
 
 .user-needs {
-    border-left-color: #4a90e2;
     background: linear-gradient(to right, rgba(74, 144, 226, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
 }
 
 .user-functionalities {
-    border-left-color: #28a745;
     background: linear-gradient(to right, rgba(40, 167, 69, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
-    margin-top: 35px;
+    margin-top: 12px;
 }
 
 .user-needs:hover, .user-functionalities:hover {
@@ -145,7 +138,6 @@
 }
 
 .needs-list .list-group-item {
-    border-left: 4px solid #4a90e2;
     font-size: 0.95rem;
 }
 
@@ -201,7 +193,7 @@
 }
 
 .add-need-btn {
-    border-color: #4a90e2;
+    border-color: #27ae60;
 }
 
 .add-functionality-btn {
@@ -245,10 +237,10 @@
     box-shadow: none;
 }
 
-.user-needs label, .user-functionalities label {
+.user-needs label {
     color: #2d3748;
     position: relative;
-    padding-left: 24px;
+    padding-left: 0;
     font-size: 1.4rem;
     font-weight: 600;
     margin-bottom: 1.2rem;
@@ -257,22 +249,16 @@
     padding-bottom: 10px;
 }
 
-.user-needs label:before {
-    content: "•";
-    color: #4a90e2;
-    position: absolute;
-    left: 0;
-    font-size: 2em;
-    line-height: 0.8;
-}
-
-.user-functionalities label:before {
-    content: "•";
-    color: #28a745;
-    position: absolute;
-    left: 0;
-    font-size: 2em;
-    line-height: 0.8;
+.user-functionalities label {
+    color: #2d3748;
+    position: relative;
+    padding-left: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 1.2rem;
+    display: block;
+    border-bottom: 2px solid rgba(0,0,0,0.1);
+    padding-bottom: 10px;
 }
 
 .user-needs label:after,
@@ -317,7 +303,7 @@
 .add-usuario-btn {
     min-width: 140px;
     height: 42px;
-    border: 2px solid #4a90e2;
+    border: 2px solid #27ae60;
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -386,4 +372,64 @@
 .is-invalid:focus {
     border-color: #dc3545;
     box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+}
+
+/* ===== ESTILOS PARA TAGS DE USUARIOS ===== */
+#usuarios-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.usuario-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+    animation: slideIn 0.3s ease forwards;
+    transition: all 0.2s ease;
+}
+
+.usuario-tag:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4);
+}
+
+.usuario-tag .remove-usuario {
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s ease;
+    padding: 0;
+    font-weight: bold;
+}
+
+.usuario-tag .remove-usuario:hover {
+    background: rgba(255, 255, 255, 0.6);
+    transform: scale(1.15);
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-10px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
 }

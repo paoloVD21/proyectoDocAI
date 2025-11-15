@@ -49,30 +49,31 @@
                 </div>
 
                 <!-- Usuarios y Necesidades -->
-                <h5 class="section-title mb-4">Usuarios y sus Necesidades</h5>
-                <div id="usuarios-container">
+                <h5 class="section-title mb-3">Usuarios y sus Necesidades</h5>
+                <div id="usuarios-container" style="background: linear-gradient(135deg, rgba(74, 144, 226, 0.08) 0%, rgba(74, 144, 226, 0.03) 100%); border-radius: 8px; padding: 8px;">
                     <div class="user-section">
-                        <div class="form-group">
-                            <div class="field-label">
-                                <label>Agregar Usuarios del Sistema</label>
-                                <span class="help-icon" data-bs-toggle="tooltip" data-bs-placement="right" 
-                                      title="Define los tipos de usuarios que interactuarán con el sistema">ⓘ</span>
-                            </div>
-                            <div class="input-group">
-                                <input type="text" class="form-control usuario-input" 
-                                       placeholder="Ejemplo: Administrador, Cliente, Vendedor...">
-                                <button type="button" class="btn btn-primary add-usuario-btn">Agregar Usuario</button>
+                        <div class="form-group mb-0">
+                            <div style="display: flex; gap: 10px; align-items: flex-end;">
+                                <div style="flex: 1;">
+                                    <input type="text" class="form-control usuario-input" 
+                                           placeholder="Ej: Administrador, Cliente, Vendedor..." 
+                                           style="height: 38px; font-size: 0.9rem;">
+                                </div>
+                                <button type="button" class="btn btn-sm add-usuario-btn" 
+                                        style="background-color: #27ae60; color: white; border: none; padding: 8px 16px; white-space: nowrap;">
+                                    + Agregar
+                                </button>
                             </div>
                         </div>
 
-                        <div id="usuarios-list" class="mt-3">
-                            <!-- Los usuarios se agregarán aquí dinámicamente -->
+                        <div id="usuarios-list" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <!-- Los usuarios se agregarán aquí dinámicamente como tags -->
                         </div>
                     </div>
                 </div>
 
                 <!-- Campo oculto para almacenar usuarios y necesidades -->
-                <input type="hidden" name="usuarios_necesidades" id="id_usuarios_necesidades" value=""
+                <input type="hidden" name="usuarios_necesidades" id="id_usuarios_necesidades" value="">
 
                 <!-- Botón para crear proyecto -->
                 <div class="mt-4 text-center">

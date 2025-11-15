@@ -16,7 +16,7 @@
                         <p class="card-text text-muted small">
                             {{ proyecto.descripcion|truncatechars:100 }}
                         </p>
-                        <a href="{% url 'detalle_proyecto' proyecto.id %}" class="btn btn-outline-primary btn-sm">📄Ver Detalles</a>
+                        <a href="{% url 'detalle_proyecto' proyecto.id %}" class="btn btn-outline-primary btn-sm">🎯 Ir a Fases</a>
                         <a href="{% url 'editar_proyecto' proyecto.id %}" class="btn btn-outline-warning btn-sm">✏️Editar</a>
                         <form action="{% url 'eliminar_proyecto' proyecto.id %}" method="POST" style="display:inline;">
                             {% csrf_token %}

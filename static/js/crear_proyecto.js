@@ -6,6 +6,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitBtn = document.getElementById('submitBtn');
     let usuariosData = {};
 
+    // Colores aleatorios para las tarjetas
+    const colores = [
+        { header: '#4a90e2', light: 'rgba(74, 144, 226, 0.05)' },
+        { header: '#e74c3c', light: 'rgba(231, 76, 60, 0.05)' },
+        { header: '#27ae60', light: 'rgba(39, 174, 96, 0.05)' },
+        { header: '#f39c12', light: 'rgba(243, 156, 18, 0.05)' },
+        { header: '#9b59b6', light: 'rgba(155, 89, 182, 0.05)' },
+        { header: '#1abc9c', light: 'rgba(26, 188, 156, 0.05)' },
+        { header: '#e67e22', light: 'rgba(230, 126, 34, 0.05)' },
+        { header: '#c0392b', light: 'rgba(192, 57, 43, 0.05)' },
+    ];
+
+    function getColorAleatorio() {
+        return colores[Math.floor(Math.random() * colores.length)];
+    }
+
     function showInputError(input, message) {
         input.classList.add('is-invalid');
         const existingError = input.parentElement.querySelector('.invalid-feedback');
@@ -40,10 +56,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function addUserToList(usuario) {
+        const color = getColorAleatorio();
         const userDiv = document.createElement('div');
         userDiv.className = 'user-section mt-4 border rounded p-3';
         userDiv.innerHTML = `
-            <div class="user-header d-flex justify-content-between align-items-center mb-3">
+            <div class="user-header d-flex justify-content-between align-items-center mb-3" style="background: ${color.header} !important;">
                 <h6 class="m-0 text-uppercase fw-bold">
                     <i class="fas fa-user-circle me-2"></i>${usuario}
                 </h6>
@@ -51,12 +68,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     <i class="fas fa-trash-alt"></i>
                 </button>
             </div>
-            <div class="user-content">
+            <div class="user-content" style="background: linear-gradient(180deg, ${color.light} 0%, rgba(255,255,255,0) 100%); padding: 16px; border-radius: 0 0 8px 8px;">
                 <div class="user-needs mb-3">
-                    <label>Necesidades específicas</label>
+                    <label>📋 Necesidades específicas</label>
                     <div class="input-group mb-2">
                         <input type="text" class="form-control need-input" placeholder="¿Qué necesita este usuario?">
-                        <button type="button" class="btn btn-outline-primary add-need-btn">
+                        <button type="button" class="btn btn-outline-success add-need-btn">
                             <i class="fas fa-plus"></i> Agregar
                         </button>
                     </div>
