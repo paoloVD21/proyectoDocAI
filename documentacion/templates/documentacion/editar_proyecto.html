@@ -64,13 +64,148 @@
                     </small>
                 </div>
 
+                <!-- Campo oculto para indicar si hay cambios -->
+                <input type="hidden" id="hayChangios" name="hay_cambios" value="0">
+
                 <!-- Botones de acción -->
                 <div class="mt-4 text-center">
-                    <button type="submit" class="btn btn-warning" id="submitBtn">Guardar Cambios</button>
+                    <button type="button" class="btn btn-warning" id="submitBtn">Guardar Cambios</button>
                     <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Cancelar</a>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+<!-- Modal de Confirmación -->
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h5 class="modal-title" id="confirmationModalLabel">
+                    <i class="fas fa-exclamation-triangle"></i> Confirmar Cambios
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">
+                    <strong>⚠️ Atención:</strong> Has detectado cambios en la información del proyecto.
+                </p>
+                <p class="mb-3">
+                    Si guardas estos cambios, <strong>se eliminarán TODOS los artefactos generados por IA</strong>, incluyendo:
+                </p>
+                <ul class="ms-3 mb-3">
+                    <li>Historia de Usuario</li>
+                    <li>Requisitos</li>
+                    <li>Diagramas de Flujo</li>
+                    <li>Diagramas de Secuencia</li>
+                    <li>Diagrama de Entidad-Relación</li>
+                    <li>Pruebas de Caja Negra</li>
+                    <li>Diagramas C4</li>
+                </ul>
+                <p>
+                    <strong>Tendrás que regenerar todos estos artefactos nuevamente.</strong>
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" id="confirmSaveBtn">
+                    <i class="fas fa-save"></i> Sí, guardar cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('projectForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const confirmSaveBtn = document.getElementById('confirmSaveBtn');
+    const hayChangiosInput = document.getElementById('hayChangios');
+    const confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+
+    // Almacenar valores originales al cargar la página
+    const originalData = {
+        nombre: document.querySelector('input[name="nombre"]').value,
+        descripcion: document.querySelector('textarea[name="descripcion"]').value,
+        usuarios_necesidades: document.querySelector('textarea[name="usuarios_necesidades"]').value
+    };
+
+    console.log('[DEBUG JS] Datos originales al cargar:');
+    console.log('  Nombre:', originalData.nombre);
+    console.log('  Descripción:', originalData.descripcion.substring(0, 50) + '...');
+    console.log('  Usuarios:', originalData.usuarios_necesidades.substring(0, 50) + '...');
+
+    // Función para normalizar texto
+    function normalizar(texto) {
+        if (!texto) return "";
+        return texto.trim().replace(/\s+/g, ' ');
+    }
+
+    // Detectar cambios y mostrar modal
+    submitBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+
+        const currentData = {
+            nombre: document.querySelector('input[name="nombre"]').value,
+            descripcion: document.querySelector('textarea[name="descripcion"]').value,
+            usuarios_necesidades: document.querySelector('textarea[name="usuarios_necesidades"]').value
+        };
+
+        console.log('[DEBUG JS] Datos actuales al presionar guardar:');
+        console.log('  Nombre:', currentData.nombre);
+        console.log('  Descripción:', currentData.descripcion.substring(0, 50) + '...');
+        console.log('  Usuarios:', currentData.usuarios_necesidades.substring(0, 50) + '...');
+
+        // Normalizar para comparar
+        const original_normalizado = {
+            nombre: normalizar(originalData.nombre),
+            descripcion: normalizar(originalData.descripcion),
+            usuarios_necesidades: normalizar(originalData.usuarios_necesidades)
+        };
+
+        const current_normalizado = {
+            nombre: normalizar(currentData.nombre),
+            descripcion: normalizar(currentData.descripcion),
+            usuarios_necesidades: normalizar(currentData.usuarios_necesidades)
+        };
+
+        console.log('[DEBUG JS] Comparación después de normalizar:');
+        console.log('  Nombre cambió:', original_normalizado.nombre !== current_normalizado.nombre);
+        console.log('  Descripción cambió:', original_normalizado.descripcion !== current_normalizado.descripcion);
+        console.log('  Usuarios cambió:', original_normalizado.usuarios_necesidades !== current_normalizado.usuarios_necesidades);
+
+        // Verificar si hay cambios
+        const hayChangios = 
+            original_normalizado.nombre !== current_normalizado.nombre ||
+            original_normalizado.descripcion !== current_normalizado.descripcion ||
+            original_normalizado.usuarios_necesidades !== current_normalizado.usuarios_necesidades;
+
+        console.log('[DEBUG JS] ¿Hay cambios?', hayChangios);
+
+        if (hayChangios) {
+            // Marcar que hay cambios
+            hayChangiosInput.value = "1";
+            console.log('[DEBUG JS] Estableciendo hay_cambios=1 y mostrando modal');
+            // Mostrar modal de confirmación
+            confirmationModal.show();
+        } else {
+            console.log('[DEBUG JS] Sin cambios, guardando normalmente');
+            // Si no hay cambios, guardar normalmente
+            form.submit();
+        }
+    });
+
+    // Confirmar guardado después de advertencia
+    confirmSaveBtn.addEventListener('click', function() {
+        console.log('[DEBUG JS] Usuario confirmó guardar cambios');
+        confirmationModal.hide();
+        form.submit();
+    });
+});
+</script>
 {% endblock %}

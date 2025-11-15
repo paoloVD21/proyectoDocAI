@@ -275,37 +275,46 @@ def editar_proyecto(request, pk):
     proyecto = get_object_or_404(Project, pk=pk, propietario=request.user)
     if request.method == 'POST':
         form = ProjectForm(request.POST, instance=proyecto)
+        
+        # Leer el indicador de cambios que viene del JavaScript
+        hay_cambios_desde_js = request.POST.get('hay_cambios', '0') == '1'
+        
+        print(f"[DEBUG EDITAR] hay_cambios desde JS: {hay_cambios_desde_js}")
+        
         if form.is_valid():
-            # Guardar los datos anteriores para comparar
-            datos_anteriores = {
-                'nombre': proyecto.nombre,
-                'descripcion': proyecto.descripcion,
-                'usuarios_necesidades': proyecto.usuarios_necesidades
-            }
-            
-            # Guardar el proyecto actualizado
+            # Guardar el proyecto
             form.save()
-            proyecto.refresh_from_db()
             
-            # Verificar si cambió algún dato importante
-            datos_cambiados = (
-                datos_anteriores['nombre'] != proyecto.nombre or
-                datos_anteriores['descripcion'] != proyecto.descripcion or
-                datos_anteriores['usuarios_necesidades'] != proyecto.usuarios_necesidades
-            )
-            
-            # Si cambió algo, eliminar TODOS los artefactos generados por IA
-            if datos_cambiados:
-                Artefacto.objects.filter(
+            # Si el JavaScript detectó cambios, borrar los artefactos
+            if hay_cambios_desde_js:
+                print(f"[DEBUG EDITAR] ¡JS DETECTÓ CAMBIOS! Procediendo a borrar artefactos...")
+                
+                # Eliminar todos los artefactos generados por IA
+                artefactos_a_borrar = Artefacto.objects.filter(
                     proyecto=proyecto,
                     generado_por_ia=True
-                ).delete()
+                )
+                cantidad_artefactos = artefactos_a_borrar.count()
+                print(f"[DEBUG EDITAR] Encontrados {cantidad_artefactos} artefactos generados por IA")
+                
+                # Listar cuáles se van a borrar
+                for art in artefactos_a_borrar:
+                    print(f"  - Eliminando: {art.titulo}")
+                
+                # Borrar
+                artefactos_a_borrar.delete()
                 
                 # También eliminar pruebas de caja negra
-                PruebacajaNegra.objects.filter(proyecto=proyecto).delete()
+                pruebas_a_borrar = PruebacajaNegra.objects.filter(proyecto=proyecto)
+                cantidad_pruebas = pruebas_a_borrar.count()
+                print(f"[DEBUG EDITAR] Encontradas {cantidad_pruebas} pruebas de caja negra")
+                pruebas_a_borrar.delete()
+                
+                print(f"[DEBUG EDITAR] ✅ BORRADO COMPLETADO: {cantidad_artefactos} artefactos, {cantidad_pruebas} pruebas")
                 
                 messages.warning(request, '⚠️ Proyecto actualizado. Los artefactos generados han sido eliminados. Regenera Historia de Usuario para continuar.')
             else:
+                print(f"[DEBUG EDITAR] Sin cambios detectados por JS, no se borra nada")
                 messages.success(request, '✅ Proyecto actualizado correctamente.')
             
             return redirect('dashboard')
