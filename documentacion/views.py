@@ -1597,7 +1597,12 @@ def regenerar_diagramas_flujo(request, proyecto_id):
             messages.error(request, "❌ No se encontró la Historia de Usuario")
             return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
         
+        # Buscar requisitos: primero general, luego por HU
         requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
+        
+        if not requisitos_art:
+            # Si no existe general, buscar cualquiera que empiece con "Requisitos -"
+            requisitos_art = artefactos.filter(titulo__startswith="Requisitos -").first()
         
         if not requisitos_art or not requisitos_art.contenido:
             messages.error(request, "❌ No se encontraron Requisitos para regenerar diagramas de flujo")
@@ -1926,7 +1931,12 @@ def regenerar_diagramas_secuencia(request, proyecto_id):
             messages.error(request, "❌ No se encontró la Historia de Usuario")
             return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
         
+        # Buscar requisitos: primero general, luego por HU
         requisitos_art = artefactos.filter(titulo__iexact="Requisitos").first()
+        
+        if not requisitos_art:
+            # Si no existe general, buscar cualquiera que empiece con "Requisitos -"
+            requisitos_art = artefactos.filter(titulo__startswith="Requisitos -").first()
         
         if not requisitos_art or not requisitos_art.contenido:
             messages.error(request, "❌ No se encontraron Requisitos para regenerar diagramas de secuencia")
