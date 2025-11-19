@@ -14,6 +14,58 @@ from .forms import (ProjectForm, ArtefactoForm, CustomUserCreationForm, Security
 from core.ia import generar_subartefacto_con_prompt, extraer_requisitos, _generar_contenido, PROMPTS
 import datetime
 import re
+import zipfile
+import io
+from datetime import datetime as dt
+import requests
+from io import BytesIO
+
+# ===== FUNCIÓN AUXILIAR PARA CONVERTIR MERMAID A PNG =====
+def convertir_mermaid_a_png(contenido_mermaid, titulo="diagrama"):
+    """
+    Convierte un diagrama Mermaid a PNG usando Kroki API (online) con fondo blanco.
+    Requiere conexión a internet.
+    
+    Args:
+        contenido_mermaid (str): Contenido del diagrama en formato Mermaid
+        titulo (str): Nombre del diagrama (opcional)
+    
+    Returns:
+        bytes: Datos PNG del diagrama con fondo blanco, o None si falla
+    """
+    try:
+        # Agregar configuración de Mermaid para fondo blanco al inicio del contenido
+        config = """%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor':'#ffffff', 'primaryBorderColor':'#ffffff', 'background':'#ffffff', 'mainBkg':'#ffffff', 'secondBkg':'#ffffff', 'clusterBkg':'#ffffff'}}}%%"""
+        
+        # Combinar config con contenido
+        contenido_con_config = f"{config}\n{contenido_mermaid}"
+        
+        # URL de Kroki API - servicio gratuito para convertir diagramas
+        url = "https://kroki.io/mermaid/png"
+        
+        # Enviar diagrama Mermaid a Kroki para convertir a PNG
+        response = requests.post(
+            url,
+            data=contenido_con_config.encode('utf-8'),
+            headers={'Content-Type': 'text/plain'},
+            timeout=15
+        )
+        
+        if response.status_code == 200:
+            return response.content
+        else:
+            print(f"[ERROR] Kroki API retornó: {response.status_code}")
+            return None
+            
+    except requests.exceptions.Timeout:
+        print(f"[ERROR] Timeout al conectar con Kroki API (>15s)")
+        return None
+    except requests.exceptions.ConnectionError:
+        print(f"[ERROR] No hay conexión a internet para convertir diagrama")
+        return None
+    except Exception as e:
+        print(f"[ERROR] Convertiendo Mermaid a PNG: {str(e)}")
+        return None
 
 # ===== FUNCIÓN AUXILIAR PARA EXTRAER RF =====
 
@@ -522,6 +574,22 @@ def detalle_proyecto(request, proyecto_id):
         "Despliegue": diagramas_c4_generados
     }
     
+    # 🎯 VERIFICAR SI TODO ESTÁ GENERADO (para habilitar descarga)
+    # El proyecto está completo si:
+    # 1. Tiene Historia de Usuario
+    # 2. Tiene Requisitos
+    # 3. Tiene TODOS los diagramas de Diseño (Flujo, Secuencia, E-R)
+    # 4. Tiene TODOS los diagramas C4 (Contexto, Contenedor, Componente, Despliegue)
+    # 5. Tiene Pruebas de Caja Negra
+    
+    proyecto_completo = (
+        hu is not None and
+        requisitos_existe and
+        todos_diagramas_diseño_validos and
+        diagramas_c4_generados and
+        pruebas_caja_negra_generadas
+    )
+    
     return render(request, 'documentacion/detalle_proyecto.html', {
         'proyecto': proyecto,
         'fases': fases,
@@ -538,7 +606,8 @@ def detalle_proyecto(request, proyecto_id):
         'fases_desbloqueadas': fases_desbloqueadas,
         'pruebas_caja_negra_generadas': pruebas_caja_negra_generadas,
         'diagramas_c4_generados': diagramas_c4_generados,
-        'c4_desbloqueado': c4_desbloqueado
+        'c4_desbloqueado': c4_desbloqueado,
+        'proyecto_completo': proyecto_completo
     })
 
 # ===================== CREAR Y EDITA ARTEFACTOS =====================
@@ -3601,3 +3670,184 @@ NOTAS: Basado en los requisitos anteriores, diseña la infraestructura de despli
         print(traceback.format_exc())
         messages.error(request, f"❌ Error al regenerar: {str(e)}")
         return redirect('ver_diagramas_c4', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+# ===================== DESCARGAR PROYECTO COMPLETO (ZIP) =====================
+
+@login_required
+def descargar_proyecto_completo(request, proyecto_id):
+    """
+    Descarga todo el proyecto como un ZIP organizado por fases.
+    Incluye: Historias de Usuario, Requisitos, Diagramas, Pruebas, etc.
+    """
+    try:
+        proyecto = get_object_or_404(Project, id=proyecto_id, propietario=request.user)
+        artefactos = Artefacto.objects.filter(proyecto=proyecto).order_by('titulo')
+        pruebas = PruebacajaNegra.objects.filter(proyecto=proyecto).order_by('numero_prueba')
+        
+        # Crear ZIP en memoria
+        zip_buffer = io.BytesIO()
+        
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            
+            # ==================== ARCHIVO README ====================
+            readme_content = f"""📄 PROYECTO: {proyecto.nombre}
+===============================================
+
+Descripción: {proyecto.descripcion}
+
+Usuarios y Necesidades:
+{proyecto.usuarios_necesidades or 'N/A'}
+
+Generado: {dt.now().strftime('%d/%m/%Y %H:%M:%S')}
+
+===============================================
+
+ESTRUCTURA DEL PROYECTO:
+- 📂 Análisis/          → Historias de Usuario y Requisitos
+- 📂 Diseño/            → Diagramas de flujo, secuencia, E-R
+- 📂 Pruebas/           → Pruebas de caja negra
+- 📂 Despliegue/        → Diagramas C4
+
+"""
+            zip_file.writestr('README.txt', readme_content)
+            
+            # ==================== ANÁLISIS ====================
+            # Historia de Usuario
+            hu = artefactos.filter(titulo__iexact="Historia de Usuario").first()
+            if hu:
+                hu_content = f"HISTORIA DE USUARIO - {proyecto.nombre}\n{'='*60}\n\n{hu.contenido}"
+                zip_file.writestr('Análisis/1_Historia_Usuario.txt', hu_content)
+            
+            # Requisitos: Compilar TODOS en un solo archivo SIN DUPLICADOS
+            requisitos_compilado = f"REQUISITOS FUNCIONALES - {proyecto.nombre}\n{'='*60}\n\n"
+            
+            # Primero buscar requisito general
+            requisitos_generales = artefactos.filter(titulo__iexact="Requisitos").first()
+            if requisitos_generales:
+                requisitos_compilado += requisitos_generales.contenido + "\n\n"
+            else:
+                # Si no existe general, compilar TODOS los por HU sin duplicados
+                requisitos_por_hu = artefactos.filter(titulo__startswith="Requisitos -").order_by('titulo')
+                
+                # Usar un set para evitar duplicados
+                rf_ya_agregados = set()
+                
+                for req in requisitos_por_hu:
+                    if req.contenido:
+                        # Procesar línea por línea para eliminar duplicados
+                        for linea in req.contenido.split('\n'):
+                            linea_stripped = linea.strip()
+                            
+                            # Extraer el RF ID (ej: RF1, RF2, etc.)
+                            if linea_stripped.startswith('RF'):
+                                rf_match = re.match(r'(RF\d+)', linea_stripped)
+                                if rf_match:
+                                    rf_id = rf_match.group(1)
+                                    
+                                    # Solo agregar si no lo hemos visto antes
+                                    if rf_id not in rf_ya_agregados:
+                                        rf_ya_agregados.add(rf_id)
+                                        requisitos_compilado += linea_stripped + "\n"
+                            elif linea_stripped:
+                                # Agregar líneas que no son RF (encabezados, etc.)
+                                requisitos_compilado += linea_stripped + "\n"
+            
+            if requisitos_compilado.strip() != f"REQUISITOS FUNCIONALES - {proyecto.nombre}\n{'='*60}\n\n":
+                zip_file.writestr('Análisis/2_Requisitos_Funcionales.txt', requisitos_compilado)
+            
+            # ==================== DISEÑO ====================
+            # Diagramas de Flujo (PNG)
+            diagramas_flujo = artefactos.filter(titulo__startswith="Diagrama de flujo").order_by('titulo')
+            for i, diagrama in enumerate(diagramas_flujo, 1):
+                hu_name = diagrama.historia_usuario_relacionada or "General"
+                # Generar PNG
+                png_data = convertir_mermaid_a_png(diagrama.contenido, f"Flujo_{hu_name}")
+                if png_data:
+                    zip_file.writestr(f'Diseño/1_Diagrama_Flujo_{hu_name}.png', png_data)
+                else:
+                    # Fallback: guardar como .mmd si no se puede convertir
+                    diagram_content = f"DIAGRAMA DE FLUJO - {hu_name}\n{'='*60}\n\n{diagrama.contenido}"
+                    zip_file.writestr(f'Diseño/1_Diagrama_Flujo_{hu_name}.mmd', diagram_content)
+            
+            # Diagramas de Secuencia (PNG)
+            diagramas_secuencia = artefactos.filter(titulo__startswith="Diagrama de secuencia").order_by('titulo')
+            for i, diagrama in enumerate(diagramas_secuencia, 1):
+                hu_name = diagrama.historia_usuario_relacionada or "General"
+                # Generar PNG
+                png_data = convertir_mermaid_a_png(diagrama.contenido, f"Secuencia_{hu_name}")
+                if png_data:
+                    zip_file.writestr(f'Diseño/2_Diagrama_Secuencia_{hu_name}.png', png_data)
+                else:
+                    # Fallback: guardar como .mmd si no se puede convertir
+                    diagram_content = f"DIAGRAMA DE SECUENCIA - {hu_name}\n{'='*60}\n\n{diagrama.contenido}"
+                    zip_file.writestr(f'Diseño/2_Diagrama_Secuencia_{hu_name}.mmd', diagram_content)
+            
+            # Diagrama de Entidad-Relación (PNG)
+            diagrama_er = artefactos.filter(titulo="Diagrama de Entidad-Relacion").first()
+            if diagrama_er:
+                # Generar PNG
+                png_data = convertir_mermaid_a_png(diagrama_er.contenido, "Entidad_Relacion")
+                if png_data:
+                    zip_file.writestr('Diseño/3_Diagrama_Entidad_Relacion.png', png_data)
+                else:
+                    # Fallback: guardar como .mmd si no se puede convertir
+                    diagram_content = f"DIAGRAMA DE ENTIDAD-RELACIÓN\n{'='*60}\n\n{diagrama_er.contenido}"
+                    zip_file.writestr('Diseño/3_Diagrama_Entidad_Relacion.mmd', diagram_content)
+            
+            # ==================== PRUEBAS ====================
+            if pruebas.exists():
+                pruebas_content = f"PRUEBAS DE CAJA NEGRA - {proyecto.nombre}\n{'='*60}\n\n"
+                
+                for prueba in pruebas:
+                    pruebas_content += f"\n{'─'*60}\n"
+                    pruebas_content += f"📋 Prueba #{prueba.numero_prueba}\n"
+                    pruebas_content += f"Requisito: {prueba.requisito_id}\n"
+                    pruebas_content += f"Objetivo: {prueba.objetivo_prueba}\n"
+                    pruebas_content += f"Datos de Entrada: {prueba.datos_entrada}\n"
+                    pruebas_content += f"Procedimiento: {prueba.procedimiento}\n"
+                    pruebas_content += f"Resultado Esperado: {prueba.resultado_esperado}\n"
+                    pruebas_content += f"Estado: {prueba.estado}\n"
+                    pruebas_content += f"Resultado: {prueba.resultado_final}\n"
+                    if prueba.observaciones:
+                        pruebas_content += f"Observaciones: {prueba.observaciones}\n"
+                
+                zip_file.writestr('Pruebas/Pruebas_Caja_Negra.txt', pruebas_content)
+            
+            # ==================== DESPLIEGUE (C4) ====================
+            diagramas_c4 = artefactos.filter(
+                titulo__in=[
+                    "Diagrama de Contexto C4",
+                    "Diagrama de Contenedor C4",
+                    "Diagrama de Componente C4",
+                    "Diagrama de Despliegue C4"
+                ]
+            ).order_by('titulo')
+            
+            for diagrama in diagramas_c4:
+                c4_type = diagrama.titulo.replace("Diagrama de ", "").replace(" C4", "")
+                # Generar PNG
+                png_data = convertir_mermaid_a_png(diagrama.contenido, f"C4_{c4_type}")
+                if png_data:
+                    zip_file.writestr(f'Despliegue/C4_{c4_type}.png', png_data)
+                else:
+                    # Fallback: guardar como .mmd si no se puede convertir
+                    diagram_content = f"{diagrama.titulo}\n{'='*60}\n\n{diagrama.contenido}"
+                    zip_file.writestr(f'Despliegue/C4_{c4_type}.mmd', diagram_content)
+        
+        # Preparar la respuesta HTTP
+        zip_buffer.seek(0)
+        nombre_archivo = f"{proyecto.nombre.replace(' ', '_')}_Documentacion.zip"
+        
+        response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+        response['Content-Disposition'] = f'attachment; filename="{nombre_archivo}"'
+        
+        return response
+    
+    except Exception as e:
+        print(f"[ERROR] Descargando proyecto: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        messages.error(request, f"❌ Error al descargar proyecto: {str(e)}")
+        return redirect('detalle_proyecto', proyecto_id=proyecto_id)  # pyright: ignore[reportAttributeAccessIssue]
+

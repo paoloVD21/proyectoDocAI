@@ -46,4 +46,5 @@ urlpatterns = [
     path('proyecto/<int:proyecto_id>/pruebas-caja-negra/eliminar-todas/', views.eliminar_todas_pruebas_caja_negra, name='eliminar_todas_pruebas_caja_negra'),  # eliminar todas las pruebas
     path('prueba-caja-negra/<int:prueba_id>/actualizar/', views.actualizar_prueba_caja_negra, name='actualizar_prueba_caja_negra'),  # actualizar prueba (AJAX)
     path('prueba-caja-negra/<int:prueba_id>/regenerar/', views.regenerar_prueba_caja_negra_individual, name='regenerar_prueba_caja_negra_individual'),  # regenerar prueba individual
+    path('proyecto/<int:proyecto_id>/descargar-completo/', views.descargar_proyecto_completo, name='descargar_proyecto_completo'),  # descargar proyecto completo como ZIP
 ]

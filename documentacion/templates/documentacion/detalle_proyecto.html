@@ -22,6 +22,15 @@
         </div>
 
         <div>
+            {% if proyecto_completo %}
+            <a href="{% url 'descargar_proyecto_completo' proyecto.id %}" class="btn btn-success btn-sm me-2" title="Descargar toda la documentación del proyecto">
+                📥 Descargar Proyecto
+            </a>
+            {% else %}
+            <button class="btn btn-success btn-sm me-2" disabled title="Completa todos los artefactos para descargar el proyecto">
+                📥 Descargar Proyecto
+            </button>
+            {% endif %}
             <a href="{% url 'dashboard' %}" class="btn btn-outline-warning btn-sm">
                 🔙 Regresar
             </a>
