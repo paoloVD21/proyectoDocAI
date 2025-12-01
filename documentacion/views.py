@@ -8,9 +8,9 @@ from django.contrib import messages # pyright: ignore[reportMissingModuleSource]
 from django.contrib.auth.models import User # pyright: ignore[reportMissingModuleSource]
 from django.views.decorators.csrf import csrf_exempt # pyright: ignore[reportMissingModuleSource]
 from django.core.exceptions import ValidationError # pyright: ignore[reportMissingModuleSource]
-from .models import Project, Artefacto, Fase, SubArtefacto, SecurityQuestions, PruebacajaNegra
+from .models import Project, Artefacto, Fase, SubArtefacto, SecurityQuestions, PruebacajaNegra, Comentario
 from .forms import (ProjectForm, ArtefactoForm, CustomUserCreationForm, SecurityQuestionsForm,
-                   PasswordResetRequestForm, SecurityAnswersForm, NewPasswordForm)
+                   PasswordResetRequestForm, SecurityAnswersForm, NewPasswordForm, ComentarioForm)
 from core.ia import generar_subartefacto_con_prompt, extraer_requisitos, _generar_contenido, PROMPTS
 import datetime
 import re
@@ -2107,7 +2107,7 @@ def generar_artefacto(request, proyecto_id, subartefacto_nombre):
         messages.warning(request, "⚠️ Primero debes generar la Historia de Usuario antes de crear este tipo de artefacto.")
         return redirect('detalle_proyecto', proyecto_id=proyecto.id)  # pyright: ignore[reportAttributeAccessIssue]
 
-    # ⚠️ ESPECIAL: Para "Diagrama de flujo" - solo generar si no existen
+    # ESPECIAL: Para "Diagrama de flujo" - solo generar si no existen
     if subartefacto.nombre == "Diagrama de flujo":
         # Verificar si ya existen diagramas de flujo para este proyecto
         diagramas_existentes = Artefacto.objects.filter(
@@ -3860,4 +3860,44 @@ ESTRUCTURA DEL PROYECTO:
         print(traceback.format_exc())
         messages.error(request, f"❌ Error al descargar proyecto: {str(e)}")
         return redirect('detalle_proyecto', proyecto_id=proyecto_id)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+# ===== VISTA PARA CREAR COMENTARIO =====
+@login_required
+def crear_comentario(request):
+    """
+    Vista para que usuarios autenticados envíen comentarios sobre 
+    el rendimiento y eficiencia del sistema.
+    
+    GET: Muestra el formulario de comentario
+    POST: Valida, guarda el comentario en BD y muestra mensaje de éxito sin redirigir
+    """
+    if request.method == 'POST':
+        form = ComentarioForm(request.POST)
+        if form.is_valid():
+            # Crear comentario asociado al usuario actual
+            comentario = form.save(commit=False)
+            comentario.usuario = request.user
+            comentario.save()
+            
+            # Mensaje de éxito
+            messages.success(
+                request, 
+                '✅ ¡Comentario enviado exitosamente! Gracias por tu retroalimentación.'
+            )
+            
+            # Crear nuevo formulario vacío
+            form = ComentarioForm()
+        else:
+            # Si el formulario tiene errores, los mostramos
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"❌ Error en {field}: {error}")
+    else:
+        form = ComentarioForm()
+    
+    return render(request, 'documentacion/crear_comentario.html', {
+        'form': form,
+        'title': 'Enviar Comentario'
+    })
 

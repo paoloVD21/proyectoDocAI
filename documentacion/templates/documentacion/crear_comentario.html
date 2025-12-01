@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Enviar Comentario - DocAI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .comentario-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 30px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .comentario-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .comentario-header h1 {
+        color: #333;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+    
+    .comentario-header p {
+        color: #666;
+        font-size: 0.95rem;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-control:focus,
+    .form-control:active {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    
+    textarea.form-control {
+        resize: vertical;
+        min-height: 150px;
+    }
+    
+    .btn-enviar {
+        width: 100%;
+        padding: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-enviar:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-cancelar {
+        width: 100%;
+        padding: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        background-color: #6c757d;
+        border: none;
+        color: white;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 10px;
+    }
+    
+    .btn-cancelar:hover {
+        background-color: #5a6268;
+    }
+    
+    .error-message {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+        border-radius: 5px;
+        padding: 12px;
+        margin-bottom: 15px;
+    }
+    
+    .form-text {
+        font-size: 0.85rem;
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    .spinner {
+        display: none;
+        margin-right: 8px;
+    }
+    
+    .btn-enviar.loading {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="comentario-container">
+    <div class="comentario-header">
+        <h1>💬 Enviar Comentario</h1>
+        <p>Comparte tu experiencia sobre el rendimiento y eficiencia de DocAI</p>
+    </div>
+    
+    <!-- Mostrar mensajes de éxito o error -->
+    <div id="mensajes-container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags %}{{ message.tags }}{% else %}info{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+    
+    <form method="POST" id="comentarioForm" novalidate>
+        {% csrf_token %}
+        
+        <!-- Campo Asunto -->
+        <div class="form-group">
+            <label for="id_asunto" class="form-label">Asunto</label>
+            <input 
+                type="text" 
+                class="form-control {% if form.asunto.errors %}is-invalid{% endif %}"
+                id="id_asunto"
+                name="asunto"
+                placeholder="Ej: Mejora en la interfaz de usuario"
+                value="{{ form.asunto.value|default:'' }}"
+                required
+            >
+            {% if form.asunto.errors %}
+                <div class="invalid-feedback">
+                    {{ form.asunto.errors.0 }}
+                </div>
+            {% endif %}
+            <small class="form-text">Mínimo 3 caracteres, máximo 200</small>
+        </div>
+        
+        <!-- Campo Contenido -->
+        <div class="form-group">
+            <label for="id_contenido" class="form-label">Comentario</label>
+            <textarea 
+                class="form-control {% if form.contenido.errors %}is-invalid{% endif %}"
+                id="id_contenido"
+                name="contenido"
+                placeholder="Comparte tus sugerencias, hallazgos o comentarios sobre el sistema..."
+                required
+            >{{ form.contenido.value|default:'' }}</textarea>
+            {% if form.contenido.errors %}
+                <div class="invalid-feedback">
+                    {{ form.contenido.errors.0 }}
+                </div>
+            {% endif %}
+            <small class="form-text">Mínimo 10 caracteres, máximo 5000</small>
+        </div>
+        
+        <!-- Botones -->
+        <div>
+            <button type="submit" class="btn btn-enviar" id="btnEnviar">
+                <span class="spinner" id="spinner">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                </span>
+                Enviar Comentario
+            </button>
+            <a href="{% url 'dashboard' %}" class="btn btn-cancelar">Volver al Panel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Mostrar mensajes al cargar la página
+    window.addEventListener('load', function() {
+        const mensajesContainer = document.getElementById('mensajes-container');
+        if (mensajesContainer && mensajesContainer.querySelector('.alert')) {
+            // Scroll suave al área de mensajes
+            mensajesContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            // Auto-cerrar alertas de éxito después de 5 segundos
+            const alertas = mensajesContainer.querySelectorAll('.alert-success');
+            alertas.forEach(alerta => {
+                setTimeout(() => {
+                    const closeBtn = alerta.querySelector('.btn-close');
+                    if (closeBtn) {
+                        closeBtn.click();
+                    }
+                }, 5000);
+            });
+        }
+    });
+    
+    // Validación del formulario en cliente
+    document.getElementById('comentarioForm').addEventListener('submit', function(e) {
+        const asunto = document.getElementById('id_asunto').value.trim();
+        const contenido = document.getElementById('id_contenido').value.trim();
+        
+        // Validar asunto
+        if (asunto.length < 3) {
+            e.preventDefault();
+            alert('El asunto debe tener al menos 3 caracteres.');
+            return false;
+        }
+        
+        if (asunto.length > 200) {
+            e.preventDefault();
+            alert('El asunto no puede exceder 200 caracteres.');
+            return false;
+        }
+        
+        // Validar contenido
+        if (contenido.length < 10) {
+            e.preventDefault();
+            alert('El comentario debe tener al menos 10 caracteres.');
+            return false;
+        }
+        
+        if (contenido.length > 5000) {
+            e.preventDefault();
+            alert('El comentario no puede exceder 5000 caracteres.');
+            return false;
+        }
+        
+        // Mostrar spinner y desabilitar botón
+        const btnEnviar = document.getElementById('btnEnviar');
+        const spinner = document.getElementById('spinner');
+        btnEnviar.classList.add('loading');
+        spinner.style.display = 'inline-block';
+        btnEnviar.disabled = true;
+    });
+    
+    // Contador de caracteres en tiempo real (opcional)
+    document.getElementById('id_contenido').addEventListener('input', function() {
+        const maxChars = 5000;
+        const currentChars = this.value.length;
+        const remaining = maxChars - currentChars;
+        
+        if (remaining < 100) {
+            this.style.borderColor = remaining < 0 ? '#dc3545' : '#ffc107';
+        } else {
+            this.style.borderColor = '';
+        }
+    });
+</script>
+{% endblock %}

@@ -3,7 +3,7 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
-from .models import Project, Artefacto, SecurityQuestions
+from .models import Project, Artefacto, SecurityQuestions, Comentario
 
 
 
@@ -407,3 +407,47 @@ class NewPasswordForm(forms.Form):
             raise ValidationError('Las contraseñas no coinciden.')
             
         return password2
+
+
+class ComentarioForm(forms.ModelForm):
+    """Formulario para enviar comentarios sobre rendimiento y eficiencia del sistema"""
+    
+    asunto = forms.CharField(
+        label='Asunto',
+        max_length=200,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ingrese el asunto del comentario',
+            'required': 'required'
+        })
+    )
+    
+    contenido = forms.CharField(
+        label='Comentario',
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 6,
+            'placeholder': 'Comparta sus comentarios sobre el rendimiento y eficiencia del sistema...',
+            'required': 'required'
+        })
+    )
+    
+    class Meta:
+        model = Comentario
+        fields = ['asunto', 'contenido']
+    
+    def clean_asunto(self):
+        asunto = self.cleaned_data.get('asunto', '').strip()
+        if len(asunto) < 3:
+            raise ValidationError('El asunto debe tener al menos 3 caracteres.')
+        if len(asunto) > 200:
+            raise ValidationError('El asunto no puede exceder 200 caracteres.')
+        return asunto
+    
+    def clean_contenido(self):
+        contenido = self.cleaned_data.get('contenido', '').strip()
+        if len(contenido) < 10:
+            raise ValidationError('El comentario debe tener al menos 10 caracteres.')
+        if len(contenido) > 5000:
+            raise ValidationError('El comentario no puede exceder 5000 caracteres.')
+        return contenido

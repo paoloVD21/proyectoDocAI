@@ -207,4 +207,22 @@ class PruebacajaNegra(models.Model):
 
     def __str__(self) -> str:
         return f"PCN{self.numero_prueba} - {self.requisito_id} ({self.proyecto.nombre})"
+
+
+class Comentario(models.Model):
+    """Modelo para almacenar comentarios de usuarios sobre rendimiento y eficiencia del sistema"""
+    
+    usuario: models.ForeignKey = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comentarios')
+    asunto: models.CharField = models.CharField(max_length=200, help_text="Asunto o tema del comentario")
+    contenido: models.TextField = models.TextField(help_text="Contenido del comentario")
+    creado: models.DateTimeField = models.DateTimeField(auto_now_add=True)
+    actualizado: models.DateTimeField = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-creado']
+        verbose_name = "Comentario"
+        verbose_name_plural = "Comentarios"
+    
+    def __str__(self) -> str:
+        return f"Comentario de {self.usuario.username} - {self.asunto}"
         

@@ -1,0 +1,36 @@
+# Django Framework
+Django==5.2
+asgiref==3.8.1
+sqlparse==0.5.3
+# Django Extensions & Auth
+django-allauth==65.7.0
+django-crispy-forms==2.4
+crispy-bootstrap5==2025.4
+django-widget-tweaks==1.5.0
+django-mermaid==0.1.0
+mermaid-py==0.8.0
+djangorestframework==3.16.0
+# Google Generative AI
+google-generativeai==0.8.5
+google-genai==1.49.0
+# Environment & Configuration
+python-dotenv==1.1.0
+# Image Processing
+Pillow==11.1.0
+# HTTP & Requests
+requests==2.32.3
+certifi==2025.1.31
+charset-normalizer==3.4.1
+idna==3.10
+urllib3==2.4.0
+# Utilities
+pytz==2025.2
+MarkupSafe==2.1.5
+Jinja2==3.1.4
+# Deployment & Serving
+whitenoise==6.11.0
+gunicorn==23.0.0
+# Arguments & Package Metadata
+typing_extensions==4.13.2
+packaging==24.2
+ipython==9.7.0
